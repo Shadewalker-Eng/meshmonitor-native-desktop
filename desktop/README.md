@@ -2,6 +2,8 @@
 
 A lightweight Windows desktop application that runs MeshMonitor as a system tray service.
 
+For a Windows shell that embeds the MeshMonitor dashboard, see the [WinUI 3 shell](winui/README.md).
+
 ## Overview
 
 MeshMonitor Desktop is built with [Tauri](https://tauri.app/), a Rust-based framework for building lightweight desktop applications. It bundles the MeshMonitor backend server and Node.js runtime, allowing users to run MeshMonitor without Docker or a dedicated server.

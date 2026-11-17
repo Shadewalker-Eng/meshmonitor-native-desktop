@@ -1,0 +1,25 @@
+<Window
+    x:Class="MeshMonitor.WinUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="MeshMonitor">
+    <Grid Loaded="OnLoaded">
+        <WebView2 x:Name="Dashboard" />
+        <ScrollViewer x:Name="Startup" VerticalScrollBarVisibility="Auto"
+                      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+            <StackPanel MaxWidth="540" Padding="32" Spacing="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="MeshMonitor" Style="{StaticResource TitleTextBlockStyle}" />
+                <ProgressRing x:Name="Progress" IsActive="True" HorizontalAlignment="Left" />
+                <TextBlock x:Name="Status" Text="Starting MeshMonitor…" TextWrapping="Wrap"
+                           AutomationProperties.LiveSetting="Polite" />
+                <TextBlock x:Name="Details" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="Retry" Content="Retry" Click="OnRetry" Visibility="Collapsed" />
+                    <Button x:Name="OpenInBrowser" Content="Open in browser" Click="OnOpenInBrowser"
+                            Visibility="Collapsed" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
