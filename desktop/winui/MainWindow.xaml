@@ -1,25 +1,266 @@
-<Window
-    x:Class="MeshMonitor.WinUI.MainWindow"
+<Window x:Class="MeshMonitor.Native.MainWindow" Title="MeshMonitor"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="MeshMonitor">
-    <Grid Loaded="OnLoaded">
-        <WebView2 x:Name="Dashboard" />
-        <ScrollViewer x:Name="Startup" VerticalScrollBarVisibility="Auto"
-                      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-            <StackPanel MaxWidth="540" Padding="32" Spacing="12"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="MeshMonitor" Style="{StaticResource TitleTextBlockStyle}" />
-                <ProgressRing x:Name="Progress" IsActive="True" HorizontalAlignment="Left" />
-                <TextBlock x:Name="Status" Text="Starting MeshMonitor…" TextWrapping="Wrap"
-                           AutomationProperties.LiveSetting="Polite" />
-                <TextBlock x:Name="Details" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="Retry" Content="Retry" Click="OnRetry" Visibility="Collapsed" />
-                    <Button x:Name="OpenInBrowser" Content="Open in browser" Click="OnOpenInBrowser"
-                            Visibility="Collapsed" />
+    xmlns:local="using:MeshMonitor.Native">
+    <Grid Loaded="OnLoaded" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          RowDefinitions="Auto,Auto,*">
+        <Grid Padding="24,16" ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE968;" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                          VerticalAlignment="Center" />
+                <TextBlock Text="MeshMonitor" Style="{StaticResource SubtitleTextBlockStyle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Name="SignInView" Content="Sign in" Click="OnShowSignIn"
+                        Visibility="Collapsed" />
+                <Button Content="Menu" AutomationProperties.Name="MeshMonitor menu">
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem x:Name="ViewLogs" Text="View logs" Click="OnViewLogs" IsEnabled="False" />
+                            <MenuFlyoutItem x:Name="OpenData" Text="Open data folder" Click="OnOpenData" IsEnabled="False" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Quit MeshMonitor" Click="OnQuit" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+                <StackPanel x:Name="AccountTools" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
+                    <Button x:Name="ChangePassword" Content="Change password" Click="OnChangePassword" />
+                    <Button x:Name="SignOut" Content="Sign out" Click="OnSignOut" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+        <InfoBar Grid.Row="1" x:Name="Notice" Margin="24,0,24,12" />
+        <Grid Grid.Row="2" x:Name="NativeView">
+        <ScrollViewer x:Name="Access">
+            <StackPanel MaxWidth="420" Padding="24,48" Spacing="14" HorizontalAlignment="Center">
+                <TextBlock x:Name="AccessTitle" Text="Starting MeshMonitor"
+                           Style="{StaticResource TitleTextBlockStyle}" />
+                <ProgressRing x:Name="StartupProgress" IsActive="True" HorizontalAlignment="Left" />
+                <Button x:Name="Retry" Content="Retry startup" Click="OnRetry" Visibility="Collapsed" />
+                <StackPanel x:Name="Credentials" Spacing="12" Visibility="Collapsed">
+                    <TextBox x:Name="Username" Header="Username" />
+                    <PasswordBox x:Name="Password" Header="Password" />
+                    <TextBox x:Name="Code" Header="Authenticator code" Visibility="Collapsed"
+                             InputScope="Number" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="SignIn" Content="Sign in" Click="OnSignIn"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        <Button Content="Back to dashboard" Click="OnCancelSignIn" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+        <Grid x:Name="Workspace" ColumnDefinitions="265,*" Visibility="Collapsed">
+            <Grid RowDefinitions="Auto,*,Auto" Padding="20,12" RowSpacing="12"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Sources" Style="{StaticResource SubtitleTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                    <Button x:Name="AddSource" Grid.Column="1" Content="Add" Click="OnAddSource" />
+                </Grid>
+                <ListView x:Name="SourcesList" Grid.Row="1" SelectionChanged="OnSourceChanged"
+                          AutomationProperties.Name="Sources">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:SourceRow">
+                            <StackPanel Spacing="3" Padding="0,5">
+                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind Description}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Button x:Name="Refresh" Grid.Row="2" Content="Refresh sources" Click="OnRefreshSources"
+                        HorizontalAlignment="Stretch" />
+            </Grid>
+            <Grid Grid.Column="1" RowDefinitions="Auto,*" Padding="24,12" RowSpacing="12">
+                <TextBlock x:Name="NoSource" Text="Add or select a source to view its activity."
+                           Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                <Grid x:Name="SourceHeader" ColumnDefinitions="*,Auto" ColumnSpacing="12" Visibility="Collapsed">
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="SourceName" Style="{StaticResource TitleTextBlockStyle}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="Connection" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.LiveSetting="Polite" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Name="EditSource" Content="Edit source" Click="OnEditSource" Visibility="Collapsed" />
+                        <Button x:Name="ConnectionDiagnostics" Content="Diagnostics" Click="OnConnectionDiagnostics" Visibility="Collapsed" />
+                        <Button x:Name="ConnectionAction" Click="OnConnect" Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+                <Pivot x:Name="Activity" Grid.Row="1" Visibility="Collapsed" SelectionChanged="OnTabChanged">
+                    <PivotItem x:Name="MapTab" Header="Map">
+                        <Grid RowDefinitions="*,Auto" RowSpacing="8" MinHeight="200">
+                            <local:MeshMap x:Name="NodeMap" AutomationProperties.Name="Node map" />
+                            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" Spacing="4">
+                                <Button Content="+" AutomationProperties.Name="Zoom in" Click="OnZoomIn" />
+                                <Button Content="−" AutomationProperties.Name="Zoom out" Click="OnZoomOut" />
+                                <Button Content="Fit nodes" Click="OnFitMap" />
+                                <ComboBox x:Name="BasemapStyle" SelectedIndex="0"
+                                          AutomationProperties.Name="Basemap style" SelectionChanged="OnBasemapChanged">
+                                    <ComboBoxItem Content="Topographic" />
+                                    <ComboBoxItem Content="Light gray" />
+                                </ComboBox>
+                                <Button Content="Legend">
+                                    <Button.Flyout>
+                                        <Flyout Placement="Right">
+                                            <StackPanel x:Name="MapLegend" Spacing="7" />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                            <AutoSuggestBox x:Name="MapSearch" Width="230" Margin="12"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            PlaceholderText="Find a node on the map" QueryIcon="Find"
+                                            AutomationProperties.Name="Find a node on the map"
+                                            UpdateTextOnSelect="False"
+                                            TextChanged="OnMapSearchChanged" QuerySubmitted="OnMapSearchSubmitted">
+                                <AutoSuggestBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:MapSearchResult">
+                                        <TextBlock Text="{x:Bind Label}" TextWrapping="Wrap" />
+                                    </DataTemplate>
+                                </AutoSuggestBox.ItemTemplate>
+                            </AutoSuggestBox>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" Padding="6"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                                <HyperlinkButton x:Name="MapAttribution" Content="Esri and contributors"
+                                                 Padding="4,0" FontSize="12"
+                                                 NavigateUri="https://www.arcgis.com/home/item.html?id=6e850093c837475e8c23d905ac43b7d0" />
+                            </Border>
+                            <StackPanel Grid.Row="1" Spacing="5">
+                                <TextBlock x:Name="MapSummary" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <StackPanel x:Name="PositionHistoryActions" Orientation="Horizontal" Spacing="8"
+                                            Visibility="Collapsed">
+                                    <ComboBox x:Name="PositionHistoryRange" SelectedIndex="1"
+                                              AutomationProperties.Name="Position history range"
+                                              SelectionChanged="OnPositionRangeChanged">
+                                        <ComboBoxItem Content="Last hour" />
+                                        <ComboBoxItem Content="Last 24 hours" />
+                                        <ComboBoxItem Content="Last 7 days" />
+                                    </ComboBox>
+                                    <Button x:Name="PositionHistoryToggle" Content="Show trail" Click="OnPositionHistory" />
+                                </StackPanel>
+                                <TextBlock x:Name="PositionHistoryStatus" TextWrapping="Wrap" Visibility="Collapsed"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Grid>
+                    </PivotItem>
+                    <PivotItem x:Name="NodesTab" Header="Nodes">
+                        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                            <TextBox x:Name="Search" PlaceholderText="Search by name or node ID"
+                                     AutomationProperties.Name="Search nodes" TextChanged="OnSearch" />
+                            <ListView Grid.Row="1" x:Name="NodesList" SelectionChanged="OnNodeChanged"
+                                      AutomationProperties.Name="Nodes">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:NodeRow">
+                                        <StackPanel Padding="0,5" Spacing="3">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{x:Bind Summary}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <TextBlock Grid.Row="2" x:Name="NodeDetails" TextWrapping="Wrap" />
+                        </Grid>
+                    </PivotItem>
+                    <PivotItem x:Name="MessagesTab" Header="Messages">
+                        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="10">
+                            <Grid x:Name="ConversationBar" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <ComboBox x:Name="ConversationPicker" Header="Conversation" HorizontalAlignment="Stretch"
+                                          DisplayMemberPath="Display" SelectionChanged="OnConversationSelected" />
+                                <Button x:Name="OpenConversation" Grid.Column="1" Content="Open conversation"
+                                        VerticalAlignment="Bottom" Click="OnOpenConversation" />
+                            </Grid>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                                <TextBlock x:Name="MessageStatus" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <Button x:Name="MarkRead" Grid.Column="1" Content="Mark read" Click="OnMarkRead"
+                                        Visibility="Collapsed" />
+                                <Button x:Name="ReplyMessage" Grid.Column="2" Content="Reply" Click="OnReplyMessage"
+                                        Visibility="Collapsed" />
+                                <Button x:Name="DeliveryDetails" Grid.Column="3" Content="Delivery details"
+                                        Click="OnDeliveryDetails" IsEnabled="False" />
+                            </Grid>
+                            <StackPanel x:Name="HistoryActions" Grid.Row="2" Orientation="Horizontal" Spacing="8"
+                                        Visibility="Collapsed">
+                                <Button x:Name="LoadOlder" Content="Load older messages" Click="OnLoadOlder" />
+                                <Button x:Name="LatestMessages" Content="Latest messages" Click="OnLatestMessages" />
+                            </StackPanel>
+                            <ListView Grid.Row="3" x:Name="MessagesList" SelectionChanged="OnMessageSelection"
+                                      AutomationProperties.Name="Recent messages">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:MessageRow">
+                                        <StackPanel Padding="0,6" Spacing="4">
+                                            <TextBlock Text="{x:Bind Summary}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{x:Bind ReplyPreview}" TextWrapping="Wrap"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{x:Bind Text}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                            <TextBlock Text="{x:Bind Delivery}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <StackPanel x:Name="Composer" Grid.Row="4" Spacing="8" Visibility="Collapsed">
+                                <Grid x:Name="ReplyContext" ColumnDefinitions="*,Auto" ColumnSpacing="8" Visibility="Collapsed">
+                                    <TextBlock x:Name="ReplyQuote" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="Cancel reply" Click="OnCancelReply" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="8">
+                                    <NumberBox x:Name="Channel" Header="Channel" Minimum="0" Maximum="7"
+                                               Value="0" SpinButtonPlacementMode="Inline" />
+                                    <TextBox x:Name="Destination" Grid.Column="1" Header="Direct recipient"
+                                             PlaceholderText="Leave empty to send to the channel" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox x:Name="MessageText" Header="Message" MaxLength="512" />
+                                    <Button x:Name="SendMessage" Grid.Column="1" Content="Send" Click="OnSend"
+                                            Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Bottom" />
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                    </PivotItem>
+                    <PivotItem x:Name="TelemetryTab" Header="Telemetry">
+                        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ToggleButton x:Name="FavoritesOnly" Content="Favorites only"
+                                              Click="OnFavoritesFilter" />
+                                <Button x:Name="FavoriteReading" Content="Add favorite"
+                                        Click="OnToggleFavorite" IsEnabled="False" />
+                                <Button x:Name="TelemetryHistory" Content="Show history"
+                                        Click="OnTelemetryHistory" IsEnabled="False" />
+                                <Button x:Name="CompareFavorites" Content="Compare favorites"
+                                        Click="OnCompareFavorites" />
+                            </StackPanel>
+                            <TextBlock x:Name="TelemetryStatus" Grid.Row="1" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ListView Grid.Row="2" x:Name="TelemetryList" SelectionChanged="OnTelemetrySelection"
+                                      AutomationProperties.Name="Latest telemetry readings">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:TelemetryRow">
+                                        <StackPanel Padding="0,6" Spacing="3">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{x:Bind Node}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{x:Bind FavoriteLabel}"
+                                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind Reading}" />
+                                            <TextBlock Text="{x:Bind Context}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </PivotItem>
+                </Pivot>
+            </Grid>
+        </Grid>
+        </Grid>
     </Grid>
 </Window>

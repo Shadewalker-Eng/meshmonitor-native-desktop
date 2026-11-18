@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace MeshMonitor.WinUI;
+namespace MeshMonitor.Native;
 
 public partial class App : Application
 {

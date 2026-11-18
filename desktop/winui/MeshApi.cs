@@ -1,0 +1,465 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+
+namespace MeshMonitor.Native;
+
+internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : IDisposable
+{
+    private readonly HttpClient client = new(new HttpClientHandler
+    {
+        UseProxy = false,
+        AllowAutoRedirect = false,
+        CookieContainer = new CookieContainer()
+    }) { BaseAddress = endpoint, Timeout = TimeSpan.FromSeconds(12) };
+
+    internal Task<JsonElement> AuthStatus() => RequestAsync("api/auth/status");
+    internal Task<JsonElement> SignIn(string username, string password) =>
+        RequestAsync("api/auth/login", new { username, password });
+    internal Task<JsonElement> VerifyCode(string token) =>
+        RequestAsync("api/auth/verify-mfa", new { token });
+    internal Task<JsonElement> SignOut() => RequestAsync("api/auth/logout", new { });
+    internal Task<JsonElement> ChangePassword(string currentPassword, string newPassword) =>
+        RequestAsync("api/auth/change-password", new { currentPassword, newPassword });
+    internal async Task<SourceRow[]> Sources() =>
+        (await RequestAsync("api/sources")).EnumerateArray().Select(SourceRow.From).ToArray();
+    internal Task<JsonElement> SourceStatus(SourceRow source) =>
+        RequestAsync(SourcePath(source, "status"));
+    internal Task<JsonElement> SourceConfiguration(SourceRow source) =>
+        RequestAsync(SourcePath(source));
+    internal Task<JsonElement> UpdateSource(SourceRow source, Dictionary<string, object> changes) =>
+        RequestAsync(SourcePath(source), changes, HttpMethod.Put);
+    internal Task<JsonElement> SetConnected(SourceRow source, bool connect) =>
+        RequestAsync(SourcePath(source, connect ? "connect" : "disconnect"), new { });
+    internal Task<JsonElement> AddMeshtastic(string name, string host, int port) =>
+        RequestAsync("api/sources", new { name, type = "meshtastic_tcp", config = new { host, port }, enabled = true });
+
+    internal async Task<NodeRow[]> MapNodes(SourceRow source)
+    {
+        string path = source.IsUnified ? "api/unified/dashboard" : SourcePath(source, "dashboard");
+        return (await DashboardNodes(path + "?ageWindow=settings", source.IsUnified))
+            .Where(node => node.Latitude is >= -90 and <= 90 && node.Longitude is >= -180 and <= 180)
+            .ToArray();
+    }
+
+    private async Task<NodeRow[]> DashboardNodes(string path, bool unified)
+    {
+        var snapshot = await RequestAsync(path);
+        IEnumerable<JsonElement> bundles = unified ? snapshot.EnumerateArray() : [snapshot];
+        return bundles.SelectMany(bundle => Rows(bundle.Property("nodes")).Select(row =>
+            NodeRow.From(row) with { SourceId = bundle.String("sourceId") ?? row.String("sourceId") ?? "" })).ToArray();
+    }
+
+    internal async Task<PositionHistory> NodePositionHistory(SourceRow source, NodeRow node, int hours)
+    {
+        const int maxFixes = 4000;
+        const int maxPages = 20;
+        if (source.IsUnified || source.Id != node.SourceId)
+            throw new InvalidOperationException("Position history requires the node's source.");
+
+        var fixes = new List<PositionFix>();
+        bool limited = false;
+        if (source.IsMeshCore)
+        {
+            var key = Uri.EscapeDataString(node.MeshCoreKey ?? node.Id);
+            long since = DateTimeOffset.UtcNow.AddHours(-hours).ToUnixTimeMilliseconds();
+            var history = await RequestAsync(SourcePath(source, $"meshcore/nodes/{key}/position-history?since={since}"));
+            fixes.AddRange(Rows(history.Property("data")).Select(PositionFix.From).OfType<PositionFix>());
+        }
+        else
+        {
+            string id = Uri.EscapeDataString(node.Id);
+            string path = $"api/nodes/{id}/position-history?sourceId={Uri.EscapeDataString(source.Id)}&hours={hours}";
+            long? before = null;
+            for (int page = 0; page < maxPages; page++)
+            {
+                var rows = Rows(await RequestAsync(before is { } cursor ? $"{path}&before={cursor}" : path)).ToArray();
+                if (rows.Length == 0) break;
+                fixes.AddRange(rows.Select(PositionFix.From).OfType<PositionFix>());
+                if (fixes.Count >= maxFixes || page == maxPages - 1 ||
+                    rows[0].Timestamp("timestamp") is not { } oldest || oldest.ToUnixTimeMilliseconds() >= before)
+                {
+                    limited = true;
+                    break;
+                }
+                before = oldest.ToUnixTimeMilliseconds();
+            }
+        }
+        return new(fixes.Distinct().OrderBy(fix => fix.Time).TakeLast(maxFixes).ToArray(),
+            limited || fixes.Count > maxFixes);
+    }
+
+    internal async Task<TelemetryRow[]> Telemetry(SourceRow source)
+    {
+        var readings = await RequestAsync("api/unified/telemetry?hours=24");
+        return Rows(readings).Where(item => source.IsUnified || item.String("sourceId") == source.Id)
+            .Select(TelemetryRow.From).ToArray();
+    }
+
+    internal async Task<TelemetryPoint[]> TelemetryHistory(TelemetryRow reading, int hours)
+    {
+        string node = Uri.EscapeDataString(reading.NodeId);
+        string source = Uri.EscapeDataString(reading.SourceId);
+        var rows = await RequestAsync($"api/telemetry/{node}?sourceId={source}&hours={hours}");
+        return TelemetryComparison.ParsePoints(Rows(rows).Where(row => row.String("telemetryType") == reading.Type));
+    }
+
+    internal async Task SetTelemetryFavorite(TelemetryRow reading, bool enabled)
+    {
+        if (!reading.HasHistory || !reading.CanEditFavorite)
+            throw new InvalidOperationException("This reading's source does not allow editing its favorites.");
+        string path = $"api/settings?sourceId={Uri.EscapeDataString(reading.SourceId)}";
+        var settings = await RequestAsync(path);
+        string updated = TelemetryComparison.UpdateFavorites(
+            settings.String("telemetryFavorites"), reading.NodeId, reading.Type, enabled);
+        await RequestAsync(path, new { telemetryFavorites = updated });
+    }
+
+    internal async Task<TelemetryComparison[]> TelemetryComparisons(int hours)
+    {
+        var result = await RequestAsync($"api/unified/telemetry/series?hours={hours}");
+        return Rows(result.Property("data").Property("series")).SelectMany(TelemetryComparison.From)
+            .OrderBy(chart => chart.NodeName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(chart => chart.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(chart => chart.Unit, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    internal async Task<DeliveryEvent[]> DeliveryHistory(SourceRow source, MessageRow message)
+    {
+        string id = Uri.EscapeDataString(message.Id);
+        var result = await RequestAsync(SourcePath(source, $"messages/{id}/events"));
+        return Rows(result.Property("data").Property("events"))
+            .Select(DeliveryEvent.From).OrderBy(item => item.Time).ToArray();
+    }
+
+    internal Task<JsonElement> Send(SourceRow source, string text, int channel, string? destination, uint? replyId = null) => source.Type switch
+    {
+        "meshtastic_tcp" => RequestAsync("api/messages/send", MeshtasticSendBody(source, text, channel, destination, replyId)),
+        "meshcore" when replyId is null => RequestAsync(SourcePath(source, "meshcore/messages/send"),
+            new { text, channelIdx = channel, toPublicKey = destination }),
+        _ => throw new InvalidOperationException("This source does not have a supported native send path.")
+    };
+
+    internal static Dictionary<string, object?> MeshtasticSendBody(SourceRow source, string text, int channel,
+        string? destination, uint? replyId)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["sourceId"] = source.Id, ["text"] = text, ["channel"] = channel, ["destination"] = destination
+        };
+        if (replyId is { } packet) body["replyId"] = packet;
+        return body;
+    }
+
+    internal async Task<Conversation[]> Channels(SourceRow source)
+    {
+        var result = await RequestAsync(SourcePath(source, "channels"));
+        return Rows(result).Where(row => row.Number("id") is >= 0 and <= 7 && row.Number("role") != 0)
+            .Select(row =>
+            {
+                int index = (int)row.Number("id")!.Value;
+                string? name = row.String("displayName") ?? row.String("name");
+                return Conversation.ForChannel(index, name);
+            }).ToArray();
+    }
+
+    internal async Task<Conversation[]> MeshCorePeers(SourceRow source)
+    {
+        var result = await RequestAsync(SourcePath(source, "meshcore/messages/dm-peers"));
+        return Rows(result).Select(row => row.String("publicKey")).OfType<string>()
+            .Where(key => Conversation.ValidPeer(key, meshCore: true))
+            .Select(key => Conversation.ForPeer(key)).ToArray();
+    }
+
+    internal async Task<JsonElement> ChannelUnread(SourceRow source) =>
+        (await RequestAsync($"api/messages/unread-counts?sourceId={Uri.EscapeDataString(source.Id)}")).Property("channels");
+
+    internal Task<JsonElement> MarkChannelRead(SourceRow source, int channel) =>
+        RequestAsync("api/messages/mark-read", new { sourceId = source.Id, channelId = channel });
+    internal async Task<NodeRow[]> Nodes(SourceRow source)
+    {
+        if (source.IsUnified)
+            return (await DashboardNodes("api/unified/dashboard", unified: true))
+                .OrderByDescending(row => row.Timestamp).ToArray();
+        var result = await RequestAsync(SourcePath(source, source.IsMeshCore ? "meshcore/nodes" : "nodes"));
+        return Rows(result).Select(NodeRow.From).OrderByDescending(row => row.Timestamp).ToArray();
+    }
+
+    internal async Task<MessageRow[]> Messages(SourceRow source, Conversation? conversation = null, string? localNode = null)
+        => FormatMessages(source, (await ReadMessagePage(source, conversation ?? Conversation.Recent, localNode)).Rows);
+
+    internal async Task<MessagePage> ReadMessagePage(SourceRow source, Conversation conversation, string? localNode,
+        int offset = 0)
+    {
+        string path = MessagePath(source, conversation, localNode);
+        if (offset > 0) path += $"&offset={offset}";
+        var result = await RequestAsync(path);
+        var rows = result.Property("messages");
+        var entries = Rows(rows.ValueKind == JsonValueKind.Array ? rows : result).Select(MessageRow.From).ToArray();
+        // MeshCore channel/direct endpoints return their newest page oldest first.
+        if (source.IsMeshCore && !conversation.IsRecent) Array.Reverse(entries);
+        return new(entries, !conversation.IsRecent && result.Flag("hasMore") == true);
+    }
+
+    internal static MessageRow[] FormatMessages(SourceRow source, IEnumerable<MessageRow> rows)
+    {
+        var messages = rows
+            .Where(message => !string.IsNullOrWhiteSpace(message.Text))
+            .OrderByDescending(message => message.Timestamp).ToArray();
+        var quoted = messages.Where(message => message.PacketId is not null)
+            .ToLookup(message => (message.PacketId!.Value, message.Channel, Conversation.DirectPair(message)));
+        return messages.Select(message =>
+        {
+            if (message.ReplyId is not { } reply) return message;
+            string? pair = Conversation.DirectPair(message);
+            var candidates = source.IsUnified || (message.Channel == -1 && pair is null)
+                ? Array.Empty<MessageRow>() : quoted[(reply, message.Channel, pair)].Take(2).ToArray();
+            return message with { ReplyPreview = candidates.Length == 1
+                ? $"Reply to {candidates[0].Sender} · {Conversation.Quote(candidates[0].Text)}"
+                : $"Reply to packet {reply}" };
+        }).ToArray();
+    }
+
+    internal static string MessagePath(SourceRow source, Conversation conversation, string? localNode)
+    {
+        if (source.IsUnified) return "api/unified/messages?channel=__all__&limit=100";
+        string scope = $"?sourceId={Uri.EscapeDataString(source.Id)}&limit=100";
+        if (conversation.Peer is { } peer)
+        {
+            string recipient = Uri.EscapeDataString(peer);
+            if (source.IsMeshCore) return SourcePath(source, $"meshcore/messages/dm/{recipient}?limit=100");
+            if (localNode is null || !Conversation.ValidPeer(localNode, meshCore: false))
+                throw new InvalidOperationException("The source must report its local node ID before opening a direct conversation.");
+            return $"api/messages/direct/{Uri.EscapeDataString(localNode)}/{recipient}{scope}";
+        }
+        if (conversation.Channel is int channel)
+            return source.IsMeshCore ? SourcePath(source, $"meshcore/messages/channel/{channel}?limit=100") :
+                $"api/messages/channel/{channel}{scope}";
+        if (source.IsMeshCore) return SourcePath(source, "meshcore/messages?limit=100");
+        return "api/messages" + scope;
+    }
+
+    private async Task<JsonElement> RequestAsync(string path, object? body = null, HttpMethod? method = null)
+    {
+        using var request = new HttpRequestMessage(method ?? (body is null ? HttpMethod.Get : HttpMethod.Post), path);
+        if (body is not null)
+        {
+            string token = (await RequestAsync("api/csrf-token")).String("csrfToken")
+                ?? throw new InvalidOperationException("MeshMonitor did not issue a request token.");
+            request.Headers.Add("X-CSRF-Token", token);
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellation);
+        JsonElement result = default;
+        var content = await response.Content.ReadAsByteArrayAsync(cancellation);
+        if (content.Length != 0)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(content);
+                result = document.RootElement.Clone();
+            }
+            catch (JsonException) when (!response.IsSuccessStatusCode) { }
+        }
+
+        if (!response.IsSuccessStatusCode || result.Flag("success") == false)
+        {
+            string explanation = result.String("message") ?? result.String("error")
+                ?? $"MeshMonitor returned HTTP {(int)response.StatusCode}.";
+            throw new HttpRequestException(explanation, null, response.StatusCode);
+        }
+        return result;
+    }
+
+    private static string SourcePath(SourceRow source, string? action = null) =>
+        $"api/sources/{Uri.EscapeDataString(source.Id)}" + (action is null ? "" : "/" + action);
+
+    private static JsonElement.ArrayEnumerator Rows(JsonElement value) =>
+        (value.ValueKind == JsonValueKind.Array ? value : value.Property("data")).EnumerateArray();
+
+    public void Dispose() => client.Dispose();
+}
+
+public sealed record SourceRow(string Id, string Name, string Type, bool Enabled)
+{
+    public static SourceRow Unified { get; } = new("", "Unified", "unified", true);
+    public bool IsUnified => Type == "unified";
+    public bool CanTransmit => Type is "meshtastic_tcp" or "meshcore";
+    public bool IsMeshCore => Type.StartsWith("meshcore", StringComparison.Ordinal);
+    public string Subtitle => Type switch
+    {
+        "meshtastic_tcp" => "Meshtastic · TCP",
+        "mqtt_bridge" => "MQTT bridge",
+        "mqtt_broker" => "MQTT broker",
+        "meshcore" => "MeshCore",
+        "meshcore_mqtt" => "MeshCore · MQTT",
+        "meshcore_mqtt_broker" => "MeshCore · MQTT broker",
+        "reticulum" => "Reticulum",
+        "unified" => "All sources",
+        _ => Type
+    };
+    public string Description => Enabled ? Subtitle : $"{Subtitle} · Disabled";
+
+    internal static SourceRow From(JsonElement row) => new(
+        row.String("id") ?? throw new JsonException("Source ID missing."),
+        row.String("name") ?? "Unnamed source", row.String("type") ?? "", row.Flag("enabled") == true);
+}
+
+public sealed record NodeRow(string Id, string Name, string ShortName, DateTimeOffset? Timestamp,
+    double? Snr, double? Rssi, double? Battery, double? Latitude, double? Longitude)
+{
+    public string SourceId { get; init; } = "";
+    internal string? MeshCoreKey { get; init; }
+    public string Summary => $"{Id} · {ValueFormat.Time(Timestamp)}";
+    public string Signal => Snr is { } snr ? $"{snr:g} dB SNR" : "—";
+
+    internal static NodeRow From(JsonElement row)
+    {
+        var user = row.Property("user");
+        var position = row.Property("position");
+        string id = row.String("nodeId") ?? row.String("publicKey") ?? user.String("id")
+            ?? row.Number("nodeNum")?.ToString() ?? "Unknown";
+        return new NodeRow(id, row.String("longName") ?? row.String("name") ?? user.String("longName") ?? id,
+            row.String("shortName") ?? user.String("shortName") ?? "",
+            row.Timestamp("lastHeard"), row.Number("snr"), row.Number("rssi"), row.Number("batteryLevel"),
+            row.Number("latitude") ?? position.Number("latitude"),
+            row.Number("longitude") ?? position.Number("longitude"))
+        { SourceId = row.String("sourceId") ?? "", MeshCoreKey = row.String("publicKey") };
+    }
+}
+
+public sealed record MessageRow(string Sender, string Text, DateTimeOffset? Timestamp)
+{
+    public string Id { get; init; } = "";
+    public string Delivery { get; init; } = "";
+    public string? FromId { get; init; }
+    public string? ToId { get; init; }
+    public int? Channel { get; init; }
+    public uint? PacketId { get; init; }
+    public uint? ReplyId { get; init; }
+    public string ReplyPreview { get; init; } = "";
+    public string Summary => $"{Sender} · {ValueFormat.Time(Timestamp)}";
+
+    internal static MessageRow From(JsonElement row) => new MessageRow(
+        row.String("senderName") ?? row.String("fromNodeLongName") ?? row.String("name") ?? row.String("fromNodeId")
+            ?? row.String("senderPublicKey") ?? "Unknown sender",
+        row.String("text") ?? "", row.Timestamp("timestamp") ?? row.Timestamp("createdAt"))
+    {
+        Id = row.String("id") ?? "",
+        FromId = row.String("fromNodeId") ?? row.String("fromPublicKey"),
+        ToId = row.String("toNodeId") ?? row.String("toPublicKey"),
+        Channel = Conversation.MessageChannel(row),
+        PacketId = row.UInt32("packetId") is uint packet && packet > 0
+            ? packet : Conversation.PacketFromStoredId(row.String("id")),
+        ReplyId = row.UInt32("replyId") is uint reply && reply > 0 ? reply : null,
+        Delivery = row.Flag("ackFailed") == true || row.Flag("routingErrorReceived") == true
+            ? "Routing failed"
+            : row.String("deliveryStatus") switch
+            {
+                "failed" => "Delivery failed",
+                "delivered" => "Recipient acknowledgment received",
+                "sent" => "Sent to radio",
+                "sending" => "Sending",
+                _ => row.String("deliveryState") switch
+                {
+                    "failed" => "Routing failed",
+                    "confirmed" => "Recipient acknowledgment received",
+                    "delivered" => "Transmitted to mesh",
+                    _ => ""
+                }
+            }
+    };
+}
+
+public sealed record TelemetryRow(string Node, string Reading, string Context)
+{
+    public string NodeId { get; init; } = "";
+    public string SourceId { get; init; } = "";
+    public string Type { get; init; } = "";
+    public string Unit { get; init; } = "";
+    public bool Favorited { get; init; }
+    public bool CanEditFavorite { get; init; }
+    public string FavoriteLabel => Favorited ? "★ Favorite" : "";
+    public bool HasHistory => NodeId.Length > 0 && SourceId.Length > 0 && Type.Length > 0;
+
+    internal static TelemetryRow From(JsonElement row)
+    {
+        string type = row.String("telemetryType") ?? "Reading";
+        string value = row.Number("value") is { } number ? number.ToString("G6") : "—";
+        string unit = row.String("unit") ?? "";
+        string source = row.String("sourceName") ?? "Source";
+        return new TelemetryRow(row.String("nodeLongName") ?? row.String("nodeShortName") ?? row.String("nodeId") ?? "Node",
+            $"{type} · {value} {unit}".TrimEnd(),
+            $"{source} · {ValueFormat.Time(row.Timestamp("timestamp"))}")
+        {
+            NodeId = row.String("nodeId") ?? "",
+            SourceId = row.String("sourceId") ?? "",
+            Type = row.String("telemetryType") ?? "",
+            Unit = unit,
+            Favorited = row.Flag("favorited") == true,
+            CanEditFavorite = row.Flag("canEditFavorite") == true
+        };
+    }
+}
+
+internal readonly record struct TelemetryPoint(DateTimeOffset Time, double Value);
+
+internal sealed record DeliveryEvent(DateTimeOffset? Time, string Type, string Provenance, string? Detail)
+{
+    internal string Description => Type switch
+    {
+        "submitted" => "Submitted",
+        "sent_to_radio" => "Sent to radio",
+        "delivered" => "Delivery reported",
+        "confirmed" => "Recipient acknowledgment",
+        "routing_error" => "Routing error",
+        "timeout" => "Acknowledgment timed out",
+        "retry" => "Retry",
+        _ => Type.Replace('_', ' ')
+    };
+
+    internal static DeliveryEvent From(JsonElement row) => new(row.Timestamp("timestamp"),
+        row.String("eventType") ?? "Event", row.String("provenance") ?? "", row.String("detail"));
+}
+
+internal static class ValueFormat
+{
+    internal static string Time(DateTimeOffset? value) =>
+        value?.ToLocalTime().ToString("g") ?? "Time unavailable";
+
+    internal static JsonElement Property(this JsonElement value, string name) =>
+        value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out var property)
+            ? property : default;
+    internal static string? String(this JsonElement value, string name)
+    {
+        var property = value.Property(name);
+        return property.ValueKind == JsonValueKind.String ? property.GetString() : null;
+    }
+    internal static bool? Flag(this JsonElement value, string name) => value.Property(name).ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => null
+    };
+    internal static double? Number(this JsonElement value, string name)
+    {
+        var property = value.Property(name);
+        return property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out double number)
+            ? number : null;
+    }
+    internal static DateTimeOffset? Timestamp(this JsonElement value, string name)
+    {
+        if (value.String(name) is { } text && DateTimeOffset.TryParse(text,
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind,
+            out var date))
+            return date;
+        if (value.Number(name) is not { } number || number <= 0 || number > 253402300799999)
+            return null;
+        return DateTimeOffset.FromUnixTimeMilliseconds((long)(number < 100_000_000_000 ? number * 1000 : number));
+    }
+
+    internal static uint? UInt32(this JsonElement value, string name) =>
+        value.Number(name) is { } number && number is >= 0 and <= uint.MaxValue && number == Math.Truncate(number)
+            ? (uint)number : null;
+}

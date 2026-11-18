@@ -11,11 +11,14 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
     internal static readonly string DefaultDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MeshMonitor.WinUI");
 
+    internal string DataDirectory => dataDirectory;
     internal string LogDirectory => Path.Combine(dataDirectory, "logs");
 
     private FileStream? instanceLock;
     private Process? process;
+    private Process? notificationProcess;
     private Task logPumps = Task.CompletedTask;
+    private Task notificationLogs = Task.CompletedTask;
 
     public async Task<Uri> StartAsync(CancellationToken cancellation)
     {
@@ -83,6 +86,12 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
         start.Environment["SESSION_SECRET"] = GetSessionSecret();
         start.Environment["IS_DESKTOP"] = "true";
         start.Environment["FIRMWARE_CHECK_ENABLED"] = "false";
+        if (!start.Environment.TryGetValue("APPRISE_URL", out string? configuredApprise) ||
+            string.IsNullOrWhiteSpace(configuredApprise))
+        {
+            if (TryStartNotifications(resources) is { } notifications)
+                start.Environment["APPRISE_URL"] = notifications;
+        }
 
         var child = Process.Start(start) ?? throw new InvalidOperationException("Node.js did not start.");
         process = child;
@@ -92,6 +101,51 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
 
         await WaitUntilReadyAsync(origin, child, cancellation);
         return origin;
+    }
+
+    private string? TryStartNotifications(string resources)
+    {
+        string executable = Path.Combine(resources, "binaries", "apprise-api.exe");
+        if (!File.Exists(executable)) return null;
+
+        try
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            int port;
+            try
+            {
+                listener.Start();
+                port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            }
+            finally { listener.Stop(); }
+
+            string config = Path.Combine(dataDirectory, "apprise-config");
+            Directory.CreateDirectory(config);
+            var start = new ProcessStartInfo(executable)
+            {
+                WorkingDirectory = Path.GetDirectoryName(executable)!,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            start.Environment["APPRISE_HOST"] = "127.0.0.1";
+            start.Environment["APPRISE_PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            start.Environment["APPRISE_CONFIG_DIR"] = config;
+            var child = Process.Start(start);
+            if (child is null) return null;
+            notificationProcess = child;
+            notificationLogs = Task.WhenAll(
+                CopyLogAsync(child.StandardOutput.BaseStream, "apprise-stdout.log"),
+                CopyLogAsync(child.StandardError.BaseStream, "apprise-stderr.log"));
+            return $"http://127.0.0.1:{port}";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or
+            System.ComponentModel.Win32Exception or SocketException)
+        {
+            Debug.WriteLine(error);
+            return null;
+        }
     }
 
     private string GetSessionSecret()
@@ -168,29 +222,38 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
     public void Dispose()
     {
         var child = process;
+        var notifications = notificationProcess;
         process = null;
+        notificationProcess = null;
         try
         {
-            if (child is not null)
-            {
-                try
-                {
-                    if (!child.HasExited) child.Kill(entireProcessTree: true);
-                    if (child.WaitForExit(1500))
-                    {
-                        try { logPumps.Wait(500); }
-                        catch (AggregateException error) { Debug.WriteLine(error); }
-                    }
-                }
-                catch (InvalidOperationException) when (child.HasExited) { }
-                child.Dispose();
-            }
+            StopProcess(child, logPumps);
         }
         finally
         {
-            _ = logPumps.ContinueWith(task => _ = task.Exception, TaskScheduler.Default);
-            instanceLock?.Dispose();
-            instanceLock = null;
+            try { StopProcess(notifications, notificationLogs); }
+            finally
+            {
+                instanceLock?.Dispose();
+                instanceLock = null;
+            }
+        }
+    }
+
+    private static void StopProcess(Process? child, Task logs)
+    {
+        if (child is null) return;
+        try
+        {
+            if (!child.HasExited) child.Kill(entireProcessTree: true);
+            if (child.WaitForExit(1500)) logs.Wait(500);
+        }
+        catch (InvalidOperationException) when (child.HasExited) { }
+        catch (AggregateException error) { Debug.WriteLine(error); }
+        finally
+        {
+            child.Dispose();
+            _ = logs.ContinueWith(task => _ = task.Exception, TaskScheduler.Default);
         }
     }
 }
