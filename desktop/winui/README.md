@@ -8,11 +8,21 @@ Launch `MeshMonitor.Native.exe` from the Windows x64 package. Keep its DLLs and 
 
 The app uses the Windows 11 light theme. The map opens with Esri's color topographic basemap and can switch to Light Gray without resetting the viewport. Open **Legend** to see how marker colors reflect time since last heard and distinguish clusters. The map follows upstream access rules for positions. Sign in to add a Meshtastic TCP source, manage a connection, or transmit. The composer currently supports Meshtastic TCP and device-backed MeshCore with numeric channel selection and optional direct recipients. Backend acceptance does not establish radio delivery. Closing the window hides it in the tray. Choose **Menu > Quit MeshMonitor** to shut it down.
 
-Select a source and open **Diagnostics** for its connection state and available node counts. **Edit source** lets an account with source write access rename, enable, or disable it. Editing a Meshtastic TCP hostname or port also requires source read access.
+Select a source and open **Diagnostics** for its connection state and available node counts. **Edit source** lets an account with source write access rename, enable, or disable it. Editing connection settings also requires source read access.
 
 On **Map**, search a node by name, short name, or ID. Choose a time range and select **Show trail** to view the recorded positions for the selected source.
 
 Select a specific source and message, then choose **Delivery details** to see the backend's recorded events and their provenance. Use **Refresh events** to check for a later acknowledgment. On the Telemetry tab, select a reading and choose **Show history** to graph that node and metric over 1, 6, 24 hours, or 7 days.
+
+To add a MeshCore source, choose **Add**, select **MeshCore**, and choose **USB / serial** or **TCP**. For USB, enter the COM port shown in Windows Device Manager. For TCP, enter the host and port. Select the device type and set **Connect automatically**. With source read and write access, **Edit source** can update these connection settings.
+
+Choose **Meshtastic MQTT bridge** to add a receive-only bridge with one topic filter per line, or **MeshCore MQTT** to subscribe to an observer region. Supply the upstream broker address and any required username or password. On edits, a blank password keeps the stored password for the same broker. Changing the broker address clears the previous password unless you enter a replacement.
+
+In a Meshtastic MQTT bridge's settings, expand **Bridge forwarding and topic filters** to choose receive-only, send-only, or bidirectional forwarding. Link a local Meshtastic MQTT broker to exchange traffic with its clients and choose single or per-gateway upstream connections. Incoming block and outgoing allow lists accept MQTT topic filters, one per line.
+
+Choose **Embedded Meshtastic MQTT broker** or **Embedded MeshCore MQTT broker** to host a broker. New listeners default to `127.0.0.1`. Use a LAN bind address for external devices. The forms support static username and password authentication. Meshtastic brokers expose the root topic, and MeshCore brokers expose automatic startup. Check **Diagnostics** for the listener state and client count.
+
+For Meshtastic direct messages, select **Acknowledgments** to see the local transmit acknowledgment and any recipient acknowledgment as separate events. The dialog refreshes while the backend is waiting for the recipient. If the backend supplies an acknowledgment sender, WinUI checks that it matches the destination before showing the recipient as acknowledged. Acknowledgment confirms delivery to a node and does not indicate that a person read the message.
 
 Choose **Add favorite** or **Remove favorite** for a selected reading. The change is saved to that reading's source when your account has permission. **Favorites only** filters the latest list. **Compare favorites** plots a favorite node and metric across readable sources, with separate charts for different units.
 
@@ -41,7 +51,7 @@ When shipping the optional Apprise sidecar from the upstream installer, use `Pat
 | Nodes | Search, recent activity, signal, battery, and position details | Node administration, neighbors, traceroute, enrichment, and node history |
 | Messaging | Recent messages, source-scoped channel and direct conversations with older-page navigation, Meshtastic replies and channel unread controls, recorded delivery status and event timelines | Reactions, direct-message unread controls, and protocol-specific channel controls |
 | Telemetry | Latest readings, single-reading history, shared source favorites, and comparisons across sources with matching units | Configurable dashboards, axis settings, and comparison preferences |
-| Administration | Local sign-in, authenticator codes, password changes, source renaming and enablement, Meshtastic TCP source creation and endpoint editing, and connection diagnostics | OIDC, passkeys, additional source creation and transport settings, users, permissions, and backup/restore |
+| Administration | Local sign-in, authenticator codes, password changes, source renaming and enablement, Meshtastic TCP, MeshCore USB/serial and TCP, Meshtastic MQTT bridge with directional forwarding and topic filters, MeshCore MQTT ingest, embedded MQTT broker setup and editing, and connection diagnostics | OIDC, passkeys, broker observer allowlists and forwarding, bridge filter and rewrite controls, other source types, users, permissions, and backup/restore |
 | Automation and analysis | Existing engine runs in the bundled backend | Native editors and views for rules, notifications, reports, packet analysis, and diagnostics |
 | Desktop | Tray, backend lifecycle, data and log folders, bundled Windows executable | Installer, upgrade experience, and data migration workflows |
 

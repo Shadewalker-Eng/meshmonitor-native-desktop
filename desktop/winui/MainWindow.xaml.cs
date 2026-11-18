@@ -264,33 +264,14 @@ public sealed partial class MainWindow : Window
         ShowNotice("Password changed.", InfoBarSeverity.Success);
     });
 
-    private async void OnAddSource(object sender, RoutedEventArgs args) => await RunAsync(async client =>
-    {
-        var name = new TextBox { Header = "Source name" };
-        var host = new TextBox { Header = "Radio hostname or IP address" };
-        var port = new TextBox { Header = "TCP port", Text = "4403" };
-        var error = DialogError();
-        var dialog = Form("Add a Meshtastic TCP source", "Add source", name, host, port, error);
-        int portNumber = 0;
-        dialog.PrimaryButtonClick += (_, action) =>
-        {
-            if (!string.IsNullOrWhiteSpace(name.Text) &&
-                TryTcpEndpoint(host.Text, port.Text, out portNumber)) return;
-            action.Cancel = true;
-            error.Text = "Enter a source name, a hostname or IP address, and a valid port.";
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary || closed) return;
-        var created = await client.AddMeshtastic(name.Text.Trim(), NormalizeHost(host.Text), portNumber);
-        await LoadSourcesAsync(created.String("id") ?? created.Property("data").String("id"));
-    });
-
     private ContentDialog Form(string title, string action, params FrameworkElement[] fields)
     {
         var stack = new StackPanel { Spacing = 12 };
         foreach (var field in fields) stack.Children.Add(field);
         return new ContentDialog
         {
-            XamlRoot = ((FrameworkElement)Content).XamlRoot, Title = title, Content = stack,
+            XamlRoot = ((FrameworkElement)Content).XamlRoot, Title = title,
+            Content = new ScrollViewer { Content = stack, MaxHeight = 440, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
             PrimaryButtonText = action, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary
         };
     }
@@ -347,7 +328,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnConnect(object sender, RoutedEventArgs args) => await RunAsync(async client =>
     {
-        if (SourcesList.SelectedItem is not SourceRow { IsUnified: false } source) return;
+        if (SourcesList.SelectedItem is not SourceRow { CanConnect: true, Enabled: true } source) return;
         await client.SetConnected(source, !connected);
         await LoadSourceAsync();
     });
@@ -378,7 +359,8 @@ public sealed partial class MainWindow : Window
             localMessageNode = status.String("nodeId");
             connected = status.Flag("connected") == true;
             Connection.Text = $"{source.Subtitle} · {ConnectionState(source, status)}";
-            ConnectionAction.Visibility = canWriteSources && source.Enabled ? Visibility.Visible : Visibility.Collapsed;
+            ConnectionAction.Visibility = canWriteSources && source.Enabled && source.CanConnect
+                ? Visibility.Visible : Visibility.Collapsed;
             ConnectionAction.Content = connected ? "Disconnect" : "Connect";
         }
 

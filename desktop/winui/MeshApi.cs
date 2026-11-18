@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace MeshMonitor.Native;
 
@@ -33,6 +34,16 @@ internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : ID
         RequestAsync(SourcePath(source, connect ? "connect" : "disconnect"), new { });
     internal Task<JsonElement> AddMeshtastic(string name, string host, int port) =>
         RequestAsync("api/sources", new { name, type = "meshtastic_tcp", config = new { host, port }, enabled = true });
+    internal Task<JsonElement> AddMeshCore(string name, MeshCoreConnection connection) =>
+        RequestAsync("api/sources", new { name, type = "meshcore", config = connection.Apply(), enabled = true });
+    internal Task<JsonElement> AddMqttSource(string name, bool bridge, JsonObject config, bool enabled) =>
+        RequestAsync("api/sources", new { name, type = bridge ? "mqtt_bridge" : "meshcore_mqtt", config, enabled });
+    internal Task<JsonElement> AddEmbeddedBroker(string name, EmbeddedBrokerSettings settings, string password,
+        bool enabled) => RequestAsync("api/sources", new
+        {
+            name, type = settings.MeshCore ? "meshcore_mqtt_broker" : "mqtt_broker",
+            config = settings.Apply(name, password), enabled
+        });
 
     internal async Task<NodeRow[]> MapNodes(SourceRow source)
     {
@@ -286,13 +297,18 @@ public sealed record SourceRow(string Id, string Name, string Type, bool Enabled
     public static SourceRow Unified { get; } = new("", "Unified", "unified", true);
     public bool IsUnified => Type == "unified";
     public bool CanTransmit => Type is "meshtastic_tcp" or "meshcore";
+    internal bool CanConnect => Type is "meshtastic_tcp" or "meshcore" or "meshcore_mqtt" or
+        "meshcore_mqtt_broker" or "mqtt_bridge" or "reticulum";
     public bool IsMeshCore => Type.StartsWith("meshcore", StringComparison.Ordinal);
+    internal bool IsEmbeddedBroker => Type is "mqtt_broker" or "meshcore_mqtt_broker";
+    private string? Transport { get; init; }
     public string Subtitle => Type switch
     {
         "meshtastic_tcp" => "Meshtastic · TCP",
         "mqtt_bridge" => "MQTT bridge",
         "mqtt_broker" => "MQTT broker",
-        "meshcore" => "MeshCore",
+        "meshcore" => Transport is "tcp" ? "MeshCore · TCP" :
+            Transport is "usb" or "serial" ? "MeshCore · USB / serial" : "MeshCore",
         "meshcore_mqtt" => "MeshCore · MQTT",
         "meshcore_mqtt_broker" => "MeshCore · MQTT broker",
         "reticulum" => "Reticulum",
@@ -303,7 +319,8 @@ public sealed record SourceRow(string Id, string Name, string Type, bool Enabled
 
     internal static SourceRow From(JsonElement row) => new(
         row.String("id") ?? throw new JsonException("Source ID missing."),
-        row.String("name") ?? "Unnamed source", row.String("type") ?? "", row.Flag("enabled") == true);
+        row.String("name") ?? "Unnamed source", row.String("type") ?? "", row.Flag("enabled") == true)
+        { Transport = row.Property("config").String("transport") };
 }
 
 public sealed record NodeRow(string Id, string Name, string ShortName, DateTimeOffset? Timestamp,
@@ -332,7 +349,12 @@ public sealed record NodeRow(string Id, string Name, string ShortName, DateTimeO
 public sealed record MessageRow(string Sender, string Text, DateTimeOffset? Timestamp)
 {
     public string Id { get; init; } = "";
-    public string Delivery { get; init; } = "";
+    internal string? DeliveryState { get; init; }
+    internal string? ProtocolDeliveryStatus { get; init; }
+    internal bool RoutingFailed { get; init; }
+    internal bool WantsAcknowledgment { get; init; }
+    internal uint? AcknowledgmentSender { get; init; }
+    public string Delivery => MessageAcknowledgment.Summary(this);
     public string? FromId { get; init; }
     public string? ToId { get; init; }
     public int? Channel { get; init; }
@@ -353,22 +375,11 @@ public sealed record MessageRow(string Sender, string Text, DateTimeOffset? Time
         PacketId = row.UInt32("packetId") is uint packet && packet > 0
             ? packet : Conversation.PacketFromStoredId(row.String("id")),
         ReplyId = row.UInt32("replyId") is uint reply && reply > 0 ? reply : null,
-        Delivery = row.Flag("ackFailed") == true || row.Flag("routingErrorReceived") == true
-            ? "Routing failed"
-            : row.String("deliveryStatus") switch
-            {
-                "failed" => "Delivery failed",
-                "delivered" => "Recipient acknowledgment received",
-                "sent" => "Sent to radio",
-                "sending" => "Sending",
-                _ => row.String("deliveryState") switch
-                {
-                    "failed" => "Routing failed",
-                    "confirmed" => "Recipient acknowledgment received",
-                    "delivered" => "Transmitted to mesh",
-                    _ => ""
-                }
-            }
+        DeliveryState = row.String("deliveryState"),
+        ProtocolDeliveryStatus = row.String("deliveryStatus"),
+        RoutingFailed = row.Flag("ackFailed") == true || row.Flag("routingErrorReceived") == true,
+        WantsAcknowledgment = row.Flag("wantAck") == true,
+        AcknowledgmentSender = row.UInt32("ackFromNode")
     };
 }
 

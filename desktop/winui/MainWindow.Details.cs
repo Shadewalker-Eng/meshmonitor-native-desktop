@@ -1,6 +1,7 @@
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -20,8 +21,11 @@ public sealed partial class MainWindow
     private void UpdateDetailActions()
     {
         if (DeliveryDetails is null || TelemetryHistory is null) return;
+        var selected = MessagesList.SelectedItem as MessageRow;
         DeliveryDetails.IsEnabled = !busy && SourcesList.SelectedItem is SourceRow { IsUnified: false }
-            && MessagesList.SelectedItem is MessageRow { Id.Length: > 0 };
+            && selected is { Id.Length: > 0 };
+        DeliveryDetails.Content = selected is not null && MessageAcknowledgment.IsMeshtasticDirect(selected)
+            ? "Acknowledgments" : "Delivery details";
         TelemetryHistory.IsEnabled = !busy && TelemetryList.SelectedItem is TelemetryRow { HasHistory: true };
         UpdateFavoriteActions();
     }
@@ -33,31 +37,47 @@ public sealed partial class MainWindow
 
         var list = new StackPanel { Spacing = 12 };
         var status = Wrapped("Loading recorded delivery events…");
+        var summary = Wrapped(message.Delivery, strong: true);
+        AutomationProperties.SetLiveSetting(summary, AutomationLiveSetting.Polite);
         var refresh = new Button { Content = "Refresh events" };
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(Wrapped($"{source.Name} · {message.Summary}"));
-        if (message.Delivery.Length > 0) body.Children.Add(Wrapped(message.Delivery));
+        body.Children.Add(summary);
+        summary.Visibility = summary.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         body.Children.Add(Wrapped(message.Text, 4));
         body.Children.Add(refresh);
         body.Children.Add(status);
         body.Children.Add(new ScrollViewer { Content = list, MaxHeight = 290 });
 
         bool showing = true;
-        async Task LoadAsync()
+        var poll = DispatcherQueue.CreateTimer();
+        poll.Interval = TimeSpan.FromSeconds(4);
+        DeliveryEvent[]? displayed = null;
+        async Task LoadAsync(bool manual)
         {
             if (!refresh.IsEnabled) return;
             refresh.IsEnabled = false;
-            status.Text = "Loading recorded delivery events…";
+            if (manual) status.Text = "Loading recorded delivery events…";
             try
             {
                 var events = await client.DeliveryHistory(source, message);
                 if (!showing || closed) return;
-                list.Children.Clear();
+                string current = MessageAcknowledgment.TimelineSummary(message, events);
+                if (summary.Text != current) summary.Text = current;
+                summary.Visibility = current.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (MessageAcknowledgment.AwaitingRecipient(message, events))
+                {
+                    if (!poll.IsRunning) poll.Start();
+                }
+                else poll.Stop();
                 status.Text = events.Length == 0 ? "No delivery events have been recorded." : "";
+                if (displayed is not null && displayed.SequenceEqual(events)) return;
+                displayed = events;
+                list.Children.Clear();
                 foreach (var entry in events)
                 {
                     var item = new StackPanel { Spacing = 3 };
-                    item.Children.Add(Wrapped(entry.Description, strong: true));
+                    item.Children.Add(Wrapped(MessageAcknowledgment.TimelineLabel(message, entry), strong: true));
                     string origin = string.IsNullOrWhiteSpace(entry.Provenance) ? "" : $" · {entry.Provenance}";
                     item.Children.Add(Wrapped(ValueFormat.Time(entry.Time) + origin));
                     if (!string.IsNullOrWhiteSpace(entry.Detail)) item.Children.Add(Wrapped(entry.Detail));
@@ -66,17 +86,25 @@ public sealed partial class MainWindow
             }
             catch (Exception error)
             {
+                poll.Stop();
                 if (showing && !closed) status.Text = error.Message;
             }
             finally { refresh.IsEnabled = true; }
         }
 
-        refresh.Click += async (_, _) => await LoadAsync();
-        var dialog = DetailDialog("Delivery details", body);
+        refresh.Click += async (_, _) => await LoadAsync(manual: true);
+        poll.Tick += async (_, _) => await LoadAsync(manual: false);
+        var dialog = DetailDialog(MessageAcknowledgment.IsMeshtasticDirect(message)
+            ? "Direct message acknowledgments" : "Delivery details", body);
         var opened = dialog.ShowAsync();
-        _ = LoadAsync();
+        _ = LoadAsync(manual: true);
         try { await opened; }
-        finally { showing = false; }
+        finally
+        {
+            showing = false;
+            poll.Stop();
+        }
+        if (!closed && summary.Text != message.Delivery) await LoadConversationAsync(source);
     });
 
     private async void OnTelemetryHistory(object sender, RoutedEventArgs args) => await RunAsync(async client =>
