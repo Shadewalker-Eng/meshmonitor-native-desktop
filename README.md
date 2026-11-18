@@ -1,4 +1,4 @@
-# MeshMonitor
+# MeshMonitor Native Desktop
 
 [![CI](https://github.com/Yeraze/meshmonitor/actions/workflows/ci.yml/badge.svg)](https://github.com/Yeraze/meshmonitor/actions/workflows/ci.yml)
 [![Docker Image](https://ghcr-badge.egpl.dev/yeraze/meshmonitor/latest_tag?color=%235b4566&ignore=latest,main,dev&label=version&trim=)](https://github.com/Yeraze/meshmonitor/pkgs/container/meshmonitor)
@@ -6,13 +6,28 @@
 [![License](https://img.shields.io/github/license/Yeraze/meshmonitor)](https://github.com/Yeraze/meshmonitor/blob/main/LICENSE)
 [![Translation Status](https://hosted.weblate.org/widgets/meshmonitor/-/svg-badge.svg)](https://hosted.weblate.org/engage/meshmonitor/)
 
-A comprehensive web application for monitoring off-grid mesh networks — Meshtastic, MeshCore, and MQTT — from a single dashboard. Built with React, TypeScript, and Node.js, featuring a beautiful Catppuccin Mocha dark theme and multi-database support (SQLite, PostgreSQL, MySQL).
+This fork adds a native WinUI 3 dashboard for Windows x64. It uses the Windows 11 light theme and runs the MeshMonitor 4.18.0 Node.js backend locally. The app can stay in the system tray and provides shortcuts to its data and logs.
+
+## What’s in the Windows v9 preview
+
+- **Map and nodes** — Browse a color topographic map or switch to Light Gray. Search by node name, short name, or ID, distinguish duplicate IDs by source, and inspect recorded movement over the last hour, 24 hours, or 7 days.
+- **Messaging** — Open source-specific channel and direct conversations, load older messages, and inspect recorded delivery events. Meshtastic channels also support replies and unread controls.
+- **Telemetry** — View recent readings and their history, save source-scoped favorites, and compare the same metric across sources.
+- **Sources** — View connection diagnostics and recent node counts. With source write access, rename, enable, or disable sources. Meshtastic TCP sources also support hostname and port editing for accounts with source read access.
+
+### Build and run on Windows
+
+Use Windows x64 and the .NET 8 SDK. The [WinUI build guide](desktop/winui/README.md#build-from-source) covers preparing the backend payload and publishing `MeshMonitor.Native.exe`. Keep the executable and its bundled files together. If an older build is running, quit it from the tray before starting the new one. The [feature parity table](desktop/winui/README.md#parity-with-meshmonitor-4180) lists the remaining work.
+
+## Upstream MeshMonitor web dashboard
+
+Upstream MeshMonitor is a React, TypeScript, and Node.js application for monitoring off-grid Meshtastic, MeshCore, and MQTT networks. It supports SQLite, PostgreSQL, and MySQL.
 
 ![MeshMonitor unified map of every connected source](docs/images/main.png)
 
 *The unified map. Every source (Meshtastic radios, MeshCore companions, MQTT bridges and the built-in broker) is listed down the left with its connection state and how many nodes were active in the last two hours. Nodes from all of them share one map.*
 
-## Screenshots
+## Upstream screenshots
 
 All screenshots are from the public demo at **[meshmonitor.yeraze.com](https://meshmonitor.yeraze.com/)**, viewed signed out.
 
@@ -55,7 +70,7 @@ For complete documentation, visit **[meshmonitor.org](https://meshmonitor.org/)*
 - **[Configuration](https://meshmonitor.org/configuration/)** - Detailed configuration options
 - **[Development](https://meshmonitor.org/development/)** - Contributing and development setup
 
-## Quick Start
+## Docker quick start for the web dashboard
 
 Get MeshMonitor running in **60 seconds**:
 
@@ -268,8 +283,9 @@ MeshMonitor supports multiple deployment methods:
   - For development or custom setups
   - **Note:** the SQLite default path is `/data/meshmonitor.db` (Docker convention). Bare-metal installs must set `DATABASE_PATH` to a writable location or create `/data/` for the runtime user.
 
-- **🖥️ Desktop Apps** - Native applications for Windows and macOS
-  - Download from [GitHub Releases](https://github.com/Yeraze/meshmonitor/releases)
+- **🖥️ Desktop Apps**
+  - Build this fork’s [WinUI 3 preview for Windows x64](desktop/winui/README.md#build-from-source).
+  - Download the separate upstream desktop apps from [MeshMonitor releases](https://github.com/Yeraze/meshmonitor/releases).
   - Runs as a system tray application
   - Windows (.exe) and macOS (.dmg) installers available
 
