@@ -8,10 +8,6 @@ Launch `MeshMonitor.Native.exe` from the Windows x64 package. Keep its DLLs and 
 
 The app uses the Windows 11 light theme. The map opens with Esri's color topographic basemap and can switch to Light Gray without resetting the viewport. Open **Legend** to see how marker colors reflect time since last heard and distinguish clusters. The map follows upstream access rules for positions. Sign in to add a Meshtastic TCP source, manage a connection, or transmit. The composer currently supports Meshtastic TCP and device-backed MeshCore with numeric channel selection and optional direct recipients. Backend acceptance does not establish radio delivery. Closing the window hides it in the tray. Choose **Menu > Quit MeshMonitor** to shut it down.
 
-Select a source and open **Diagnostics** for its connection state and available node counts. **Edit source** lets an account with source write access rename, enable, or disable it. Editing connection settings also requires source read access.
-
-On **Map**, search a node by name, short name, or ID. Choose a time range and select **Show trail** to view the recorded positions for the selected source.
-
 Select a specific source and message, then choose **Delivery details** to see the backend's recorded events and their provenance. Use **Refresh events** to check for a later acknowledgment. On the Telemetry tab, select a reading and choose **Show history** to graph that node and metric over 1, 6, 24 hours, or 7 days.
 
 To add a MeshCore source, choose **Add**, select **MeshCore**, and choose **USB / serial** or **TCP**. For USB, enter the COM port shown in Windows Device Manager. For TCP, enter the host and port. Select the device type and set **Connect automatically**. With source read and write access, **Edit source** can update these connection settings.
@@ -32,16 +28,21 @@ Choose **Load older messages** in a channel or direct conversation. The app hold
 
 ## Build from source
 
-Use Windows x64, the .NET 8 SDK, and NuGet access. In `desktop/winui`, prepare the Windows runtime payload from the [upstream 4.18.0 release](https://github.com/Yeraze/meshmonitor/releases/tag/v4.18.0). Place the payload in `resources` with `package.json`, `binaries/node.exe`, and `dist` (including its `node_modules`). The project also accepts an absolute `MESHMONITOR_RESOURCES` path for development.
+Use Windows x64, the .NET 8 SDK, and NuGet access. Supply the 4.18.0 Windows runtime payload from the [upstream release](https://github.com/Yeraze/meshmonitor/releases/tag/v4.18.0), laid out as `resources/package.json`, `resources/binaries/node.exe`, and `resources/dist`, including `node_modules`. Run `Prepare-DesktopProtos.mjs` once against the payload to fix the 4.18.0 package's Windows protobuf import paths. The project also accepts an absolute `MESHMONITOR_RESOURCES` path for development.
 
 ```powershell
-.\resources\binaries\node.exe .\Prepare-DesktopProtos.mjs .\resources\dist
-dotnet publish .\MeshMonitor.Native.csproj -c Release -r win-x64 --self-contained true -o .\artifacts\publish
-Copy-Item -LiteralPath .\resources -Destination .\artifacts\publish -Recurse
-Copy-Item -LiteralPath .\MeshMonitor-LICENSE.txt -Destination .\artifacts\publish
+dotnet publish .\MeshMonitor.Native.csproj -c Release --self-contained -o .\artifacts\publish
 ```
 
 When shipping the optional Apprise sidecar from the upstream installer, use `Patch-AppriseUtf8.mjs` with the Windows SDK manifest tool and the upstream executable. This gives the notification helper a per-process UTF-8 code page for redirected logs.
+
+## Radio configuration
+
+Select a source and open **Radio configuration**. Meshtastic TCP sources expose the owner, device settings, firmware modules, and eight channel slots. Administrator access is required for channels, fixed coordinates, and Bluetooth and security writes. The Device UI section and fields with no supported write operation are read-only. Module and field availability depends on the device firmware.
+
+MeshCore device sources expose name, LoRa, transmit power, coordinates, discovery, default scope, Bluetooth PIN, advert location, automatic contacts, direct-message acknowledgements, and telemetry sharing when the device reports the relevant settings. The editor reloads the selected section before sending a change. After a Meshtastic module save, the editor compares the edited fields with a response from the selected local radio. A mismatch lists the affected fields. A timeout leaves the save unconfirmed. Device sections still use backend values that can include cached data. Serial HAL mode is writable under LoRa. The firmware defines dedicated Device UI read and store messages, but the bundled manager has no handler for their reply. Device UI remains read-only.
+
+For remote Meshtastic settings, sign in as an administrator, select a connected Meshtastic TCP source, then select a remote node on the Nodes tab and choose **Administer selected radio**. Supported sections use the backend verified-save jobs. The panel distinguishes queued saves, routing acknowledgements, verified readback, differences, and timeouts. Owner, channels, and Security use command status where verified readback is unavailable. Queued jobs continue when the panel closes. Full MeshCore companion and repeater configuration remains part of parity work.
 
 ## Parity with MeshMonitor 4.18.0
 

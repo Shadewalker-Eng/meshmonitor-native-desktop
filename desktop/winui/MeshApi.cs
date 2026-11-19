@@ -5,14 +5,14 @@ using System.Text.Json.Nodes;
 
 namespace MeshMonitor.Native;
 
-internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : IDisposable
+internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellation) : IDisposable
 {
     private readonly HttpClient client = new(new HttpClientHandler
     {
         UseProxy = false,
         AllowAutoRedirect = false,
         CookieContainer = new CookieContainer()
-    }) { BaseAddress = endpoint, Timeout = TimeSpan.FromSeconds(12) };
+    }) { BaseAddress = endpoint, Timeout = Timeout.InfiniteTimeSpan };
 
     internal Task<JsonElement> AuthStatus() => RequestAsync("api/auth/status");
     internal Task<JsonElement> SignIn(string username, string password) =>
@@ -26,6 +26,125 @@ internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : ID
         (await RequestAsync("api/sources")).EnumerateArray().Select(SourceRow.From).ToArray();
     internal Task<JsonElement> SourceStatus(SourceRow source) =>
         RequestAsync(SourcePath(source, "status"));
+    internal Task<JsonElement> ReadRadioConfiguration(SourceRow source) =>
+        RequestAsync($"api/config/current?sourceId={Uri.EscapeDataString(source.Id)}");
+    internal async Task<JsonElement> ReadRadioSection(SourceRow source, RadioSection section, bool administrator = false)
+    {
+        var snapshot = await ReadRadioConfiguration(source);
+        if (section.Key == "owner" && RadioSection.NodeId(snapshot) is { } nodeId)
+        {
+            JsonElement owner;
+            if (administrator)
+                owner = (await RequestAsync("api/admin/load-owner", new { sourceId = source.Id })).Property("owner");
+            else
+            {
+                try
+                {
+                    var nodes = await RequestAsync(SourcePath(source, "nodes"));
+                    owner = nodes.EnumerateArray().FirstOrDefault(node => node.String("nodeId") == nodeId);
+                }
+                catch (HttpRequestException error) when (error.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+                {
+                    return snapshot;
+                }
+            }
+            var configuration = JsonNode.Parse(snapshot.GetRawText())!.AsObject();
+            var local = configuration["localNodeInfo"]!.AsObject();
+            foreach (string key in new[] { "isUnmessagable", "isLicensed" })
+                if (owner.Flag(key) is bool value) local[key] = value;
+            return JsonSerializer.SerializeToElement(configuration);
+        }
+        if (section.Key == "fixed-position" && RadioSection.NodeId(snapshot) is { } localId)
+        {
+            var configuration = JsonNode.Parse(snapshot.GetRawText())!.AsObject();
+            var position = new JsonObject();
+            if (snapshot.Property("deviceConfig").Property("position").Flag("fixedPosition") == true)
+            {
+                var nodes = await RequestAsync(SourcePath(source, "nodes"));
+                var local = nodes.EnumerateArray().FirstOrDefault(node => node.String("nodeId") == localId);
+                foreach (string key in new[] { "latitude", "longitude", "altitude" })
+                {
+                    var coordinate = local.Property(key);
+                    if (coordinate.ValueKind == JsonValueKind.Number) position[key] = JsonNode.Parse(coordinate.GetRawText());
+                }
+            }
+            configuration["fixedPosition"] = position;
+            return JsonSerializer.SerializeToElement(configuration);
+        }
+        if (section.ChannelIndex is not int index) return snapshot;
+        var result = await RequestAsync("api/admin/get-channel", new { sourceId = source.Id, channelIndex = index });
+        var merged = JsonNode.Parse(snapshot.GetRawText())!.AsObject();
+        var channel = result.Property("channel");
+        if (channel.ValueKind == JsonValueKind.Object)
+            merged["channel"] = JsonNode.Parse(channel.GetRawText());
+        return JsonSerializer.SerializeToElement(merged);
+    }
+    internal async Task<JsonElement> ReadMeshCoreRadioSection(SourceRow source, RadioSection section)
+    {
+        if ((await SourceStatus(source)).Flag("connected") != true)
+            return JsonSerializer.SerializeToElement(new { connected = false });
+
+        var status = (await RequestAsync(SourcePath(source, "meshcore/status"))).Property("data");
+        var node = status.Property("localNode");
+        var values = new Dictionary<string, JsonElement>();
+        if (status.Flag("connected") == true && node.String("publicKey") is not null)
+        {
+            var reported = node;
+            if (section.MeshCoreReadPath is { } route)
+            {
+                var reply = await RequestAsync(SourcePath(source, $"meshcore/config/{route}"));
+                reported = reply.Property("data").ValueKind == JsonValueKind.Object ? reply.Property("data") : reply;
+            }
+            foreach (var field in section.Fields)
+            {
+                string key = field.Key switch
+                {
+                    "freq" => "radioFreq", "bw" => "radioBw", "sf" => "radioSf", "cr" => "radioCr",
+                    "power" => "txPower", "lat" => "latitude", "lon" => "longitude", "policy" => "advLocPolicy",
+                    "value" => "multiAcks",
+                    "mode" when section.Key == "telemetry-mode-base" => "telemetryModeBase",
+                    "mode" when section.Key == "telemetry-mode-loc" => "telemetryModeLoc",
+                    "mode" => "telemetryModeEnv",
+                    _ => field.Key
+                };
+                var value = reported.Property(key);
+                if (section.Key == "auto-add-contacts" && reported.Number("manualAddContacts") is double bits)
+                    value = JsonSerializer.SerializeToElement(((int)bits & 1) == 0);
+                if (value.ValueKind is not (JsonValueKind.Undefined or JsonValueKind.Null)) values.Add(field.Key, value);
+            }
+        }
+        return JsonSerializer.SerializeToElement(new
+        {
+            connected = status.Flag("connected") == true,
+            localNodeInfo = new { nodeId = node.String("publicKey") },
+            deviceConfig = values.Count == section.Fields.Length
+                ? new Dictionary<string, object> { [section.Key] = values } : null
+        });
+    }
+
+    internal Task<JsonElement> SaveRadioConfiguration(SourceRow source, RadioSection section, JsonObject settings)
+    {
+        if (source.Type == "meshcore")
+            return RequestAsync(SourcePath(source, $"meshcore/config/{section.Key}"), settings);
+        if (section.Key == "fixed-position")
+        {
+            settings["sourceId"] = source.Id;
+            settings["command"] = section.AdminCommand;
+            return RequestAsync("api/admin/commands", settings);
+        }
+        if (section.ChannelIndex is int index)
+            return RequestAsync("api/admin/commands",
+                new { sourceId = source.Id, command = "setChannel", channelIndex = index, config = settings });
+        if (section.AdminCommand is { } command)
+            return RequestAsync("api/admin/commands", new { sourceId = source.Id, command, config = settings });
+        settings["sourceId"] = source.Id;
+        return RequestAsync($"api/config/{section.SavePath}", settings);
+    }
+    internal Task<JsonElement> ReadModuleFromRadio(SourceRow source, int configType, string nodeId) =>
+        RequestAsync("api/config/local-module-readback", new { sourceId = source.Id, configType, nodeId });
+
+    internal Task<JsonElement> RequestRadioConfiguration(SourceRow source, int configType, bool module = false) =>
+        RequestAsync(module ? "api/config/module/request" : "api/config/request", new { sourceId = source.Id, configType });
     internal Task<JsonElement> SourceConfiguration(SourceRow source) =>
         RequestAsync(SourcePath(source));
     internal Task<JsonElement> UpdateSource(SourceRow source, Dictionary<string, object> changes) =>
@@ -250,7 +369,8 @@ internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : ID
         return "api/messages" + scope;
     }
 
-    private async Task<JsonElement> RequestAsync(string path, object? body = null, HttpMethod? method = null)
+    private async Task<JsonElement> RequestAsync(string path, object? body = null, HttpMethod? method = null,
+        TimeSpan? timeout = null)
     {
         using var request = new HttpRequestMessage(method ?? (body is null ? HttpMethod.Get : HttpMethod.Post), path);
         if (body is not null)
@@ -261,9 +381,11 @@ internal sealed class MeshApi(Uri endpoint, CancellationToken cancellation) : ID
             request.Content = JsonContent.Create(body);
         }
 
-        using var response = await client.SendAsync(request, cancellation);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+        deadline.CancelAfter(timeout ?? TimeSpan.FromSeconds(12));
+        using var response = await client.SendAsync(request, deadline.Token);
         JsonElement result = default;
-        var content = await response.Content.ReadAsByteArrayAsync(cancellation);
+        var content = await response.Content.ReadAsByteArrayAsync(deadline.Token);
         if (content.Length != 0)
         {
             try

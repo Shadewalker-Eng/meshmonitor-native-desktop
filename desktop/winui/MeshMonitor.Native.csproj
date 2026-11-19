@@ -13,6 +13,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="RadioCatalog.json" LogicalName="RadioCatalog.json" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>

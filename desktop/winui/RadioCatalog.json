@@ -1,0 +1,1724 @@
+[
+  {
+    "id": "device",
+    "kind": "device",
+    "adminType": 0,
+    "field": "device",
+    "label": "Device",
+    "fields": [
+      {
+        "key": "role",
+        "label": "Role",
+        "kind": "enum",
+        "options": {
+          "CLIENT": 0,
+          "CLIENT_MUTE": 1,
+          "ROUTER": 2,
+          "ROUTER_CLIENT": 3,
+          "REPEATER": 4,
+          "TRACKER": 5,
+          "SENSOR": 6,
+          "TAK": 7,
+          "CLIENT_HIDDEN": 8,
+          "LOST_AND_FOUND": 9,
+          "TAK_TRACKER": 10,
+          "ROUTER_LATE": 11,
+          "CLIENT_BASE": 12
+        }
+      },
+      {
+        "key": "serialEnabled",
+        "label": "Serial Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "buttonGpio",
+        "label": "Button Gpio",
+        "kind": "uint32"
+      },
+      {
+        "key": "buzzerGpio",
+        "label": "Buzzer Gpio",
+        "kind": "uint32"
+      },
+      {
+        "key": "rebroadcastMode",
+        "label": "Rebroadcast Mode",
+        "kind": "enum",
+        "options": {
+          "ALL": 0,
+          "ALL_SKIP_DECODING": 1,
+          "LOCAL_ONLY": 2,
+          "KNOWN_ONLY": 3,
+          "NONE": 4,
+          "CORE_PORTNUMS_ONLY": 5
+        }
+      },
+      {
+        "key": "nodeInfoBroadcastSecs",
+        "label": "Node Info Broadcast Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "doubleTapAsButtonPress",
+        "label": "Double Tap As Button Press",
+        "kind": "bool"
+      },
+      {
+        "key": "isManaged",
+        "label": "Is Managed",
+        "kind": "bool"
+      },
+      {
+        "key": "disableTripleClick",
+        "label": "Disable Triple Click",
+        "kind": "bool"
+      },
+      {
+        "key": "tzdef",
+        "label": "Tzdef",
+        "kind": "string"
+      },
+      {
+        "key": "ledHeartbeatDisabled",
+        "label": "Led Heartbeat Disabled",
+        "kind": "bool"
+      },
+      {
+        "key": "buzzerMode",
+        "label": "Buzzer Mode",
+        "kind": "enum",
+        "options": {
+          "ALL_ENABLED": 0,
+          "DISABLED": 1,
+          "NOTIFICATIONS_ONLY": 2,
+          "SYSTEM_ONLY": 3,
+          "DIRECT_MSG_ONLY": 4
+        }
+      }
+    ]
+  },
+  {
+    "id": "position",
+    "kind": "device",
+    "adminType": 1,
+    "field": "position",
+    "label": "Position",
+    "fields": [
+      {
+        "key": "positionBroadcastSecs",
+        "label": "Position Broadcast Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "positionBroadcastSmartEnabled",
+        "label": "Position Broadcast Smart Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "fixedPosition",
+        "label": "Fixed Position",
+        "kind": "bool"
+      },
+      {
+        "key": "gpsEnabled",
+        "label": "Gps Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "gpsUpdateInterval",
+        "label": "Gps Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "gpsAttemptTime",
+        "label": "Gps Attempt Time",
+        "kind": "uint32"
+      },
+      {
+        "key": "positionFlags",
+        "label": "Position Flags",
+        "kind": "uint32"
+      },
+      {
+        "key": "rxGpio",
+        "label": "Rx Gpio",
+        "kind": "uint32"
+      },
+      {
+        "key": "txGpio",
+        "label": "Tx Gpio",
+        "kind": "uint32"
+      },
+      {
+        "key": "broadcastSmartMinimumDistance",
+        "label": "Broadcast Smart Minimum Distance",
+        "kind": "uint32"
+      },
+      {
+        "key": "broadcastSmartMinimumIntervalSecs",
+        "label": "Broadcast Smart Minimum Interval Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "gpsEnGpio",
+        "label": "Gps En Gpio",
+        "kind": "uint32"
+      },
+      {
+        "key": "gpsMode",
+        "label": "Gps Mode",
+        "kind": "enum",
+        "options": {
+          "DISABLED": 0,
+          "ENABLED": 1,
+          "NOT_PRESENT": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "power",
+    "kind": "device",
+    "adminType": 2,
+    "field": "power",
+    "label": "Power",
+    "fields": [
+      {
+        "key": "isPowerSaving",
+        "label": "Is Power Saving",
+        "kind": "bool"
+      },
+      {
+        "key": "onBatteryShutdownAfterSecs",
+        "label": "On Battery Shutdown After Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "adcMultiplierOverride",
+        "label": "Adc Multiplier Override",
+        "kind": "float"
+      },
+      {
+        "key": "waitBluetoothSecs",
+        "label": "Wait Bluetooth Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "sdsSecs",
+        "label": "Sds Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "lsSecs",
+        "label": "Ls Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "minWakeSecs",
+        "label": "Min Wake Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "deviceBatteryInaAddress",
+        "label": "Device Battery Ina Address",
+        "kind": "uint32"
+      },
+      {
+        "key": "powermonEnables",
+        "label": "Powermon Enables",
+        "kind": "uint64"
+      }
+    ]
+  },
+  {
+    "id": "network",
+    "kind": "device",
+    "adminType": 3,
+    "field": "network",
+    "label": "Network",
+    "fields": [
+      {
+        "key": "wifiEnabled",
+        "label": "Wifi Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "wifiSsid",
+        "label": "Wifi Ssid",
+        "kind": "string"
+      },
+      {
+        "key": "wifiPsk",
+        "label": "Wifi Psk",
+        "kind": "string"
+      },
+      {
+        "key": "ntpServer",
+        "label": "Ntp Server",
+        "kind": "string"
+      },
+      {
+        "key": "ethEnabled",
+        "label": "Eth Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "addressMode",
+        "label": "Address Mode",
+        "kind": "enum",
+        "options": {
+          "DHCP": 0,
+          "STATIC": 1
+        }
+      },
+      {
+        "key": "ipv4Config",
+        "label": "Ipv4 Config",
+        "kind": "json"
+      },
+      {
+        "key": "rsyslogServer",
+        "label": "Rsyslog Server",
+        "kind": "string"
+      },
+      {
+        "key": "enabledProtocols",
+        "label": "Enabled Protocols",
+        "kind": "uint32"
+      },
+      {
+        "key": "ipv6Enabled",
+        "label": "Ipv6 Enabled",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "display",
+    "kind": "device",
+    "adminType": 4,
+    "field": "display",
+    "label": "Display",
+    "fields": [
+      {
+        "key": "screenOnSecs",
+        "label": "Screen On Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "gpsFormat",
+        "label": "Gps Format",
+        "kind": "enum",
+        "options": {
+          "UNUSED": 0
+        }
+      },
+      {
+        "key": "autoScreenCarouselSecs",
+        "label": "Auto Screen Carousel Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "compassNorthTop",
+        "label": "Compass North Top",
+        "kind": "bool"
+      },
+      {
+        "key": "flipScreen",
+        "label": "Flip Screen",
+        "kind": "bool"
+      },
+      {
+        "key": "units",
+        "label": "Units",
+        "kind": "enum",
+        "options": {
+          "METRIC": 0,
+          "IMPERIAL": 1
+        }
+      },
+      {
+        "key": "oled",
+        "label": "Oled",
+        "kind": "enum",
+        "options": {
+          "OLED_AUTO": 0,
+          "OLED_SSD1306": 1,
+          "OLED_SH1106": 2,
+          "OLED_SH1107": 3,
+          "OLED_SH1107_128_128": 4,
+          "OLED_SH1107_ROTATED": 5
+        }
+      },
+      {
+        "key": "displaymode",
+        "label": "Displaymode",
+        "kind": "enum",
+        "options": {
+          "DEFAULT": 0,
+          "TWOCOLOR": 1,
+          "INVERTED": 2,
+          "COLOR": 3
+        }
+      },
+      {
+        "key": "headingBold",
+        "label": "Heading Bold",
+        "kind": "bool"
+      },
+      {
+        "key": "wakeOnTapOrMotion",
+        "label": "Wake On Tap Or Motion",
+        "kind": "bool"
+      },
+      {
+        "key": "compassOrientation",
+        "label": "Compass Orientation",
+        "kind": "enum",
+        "options": {
+          "DEGREES_0": 0,
+          "DEGREES_90": 1,
+          "DEGREES_180": 2,
+          "DEGREES_270": 3,
+          "DEGREES_0_INVERTED": 4,
+          "DEGREES_90_INVERTED": 5,
+          "DEGREES_180_INVERTED": 6,
+          "DEGREES_270_INVERTED": 7
+        }
+      },
+      {
+        "key": "use_12hClock",
+        "label": "Use_12h Clock",
+        "kind": "bool"
+      },
+      {
+        "key": "useLongNodeName",
+        "label": "Use Long Node Name",
+        "kind": "bool"
+      },
+      {
+        "key": "enableMessageBubbles",
+        "label": "Enable Message Bubbles",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "lora",
+    "kind": "device",
+    "adminType": 5,
+    "field": "lora",
+    "label": "LoRa",
+    "fields": [
+      {
+        "key": "usePreset",
+        "label": "Use Preset",
+        "kind": "bool"
+      },
+      {
+        "key": "modemPreset",
+        "label": "Modem Preset",
+        "kind": "enum",
+        "options": {
+          "LONG_FAST": 0,
+          "LONG_SLOW": 1,
+          "VERY_LONG_SLOW": 2,
+          "MEDIUM_SLOW": 3,
+          "MEDIUM_FAST": 4,
+          "SHORT_SLOW": 5,
+          "SHORT_FAST": 6,
+          "LONG_MODERATE": 7,
+          "SHORT_TURBO": 8,
+          "LONG_TURBO": 9,
+          "LITE_FAST": 10,
+          "LITE_SLOW": 11,
+          "NARROW_FAST": 12,
+          "NARROW_SLOW": 13,
+          "TINY_FAST": 14,
+          "TINY_SLOW": 15,
+          "MEDIUM_TURBO": 16
+        }
+      },
+      {
+        "key": "bandwidth",
+        "label": "Bandwidth",
+        "kind": "uint32"
+      },
+      {
+        "key": "spreadFactor",
+        "label": "Spread Factor",
+        "kind": "uint32"
+      },
+      {
+        "key": "codingRate",
+        "label": "Coding Rate",
+        "kind": "uint32"
+      },
+      {
+        "key": "frequencyOffset",
+        "label": "Frequency Offset",
+        "kind": "float"
+      },
+      {
+        "key": "region",
+        "label": "Region",
+        "kind": "enum",
+        "options": {
+          "UNSET": 0,
+          "US": 1,
+          "EU_433": 2,
+          "EU_868": 3,
+          "CN": 4,
+          "JP": 5,
+          "ANZ": 6,
+          "KR": 7,
+          "TW": 8,
+          "RU": 9,
+          "IN": 10,
+          "NZ_865": 11,
+          "TH": 12,
+          "LORA_24": 13,
+          "UA_433": 14,
+          "UA_868": 15,
+          "MY_433": 16,
+          "MY_919": 17,
+          "SG_923": 18,
+          "PH_433": 19,
+          "PH_868": 20,
+          "PH_915": 21,
+          "ANZ_433": 22,
+          "KZ_433": 23,
+          "KZ_863": 24,
+          "NP_865": 25,
+          "BR_902": 26,
+          "ITU1_2M": 27,
+          "ITU2_2M": 28,
+          "EU_866": 29,
+          "EU_874": 30,
+          "EU_917": 31,
+          "EU_N_868": 32,
+          "ITU3_2M": 33,
+          "ITU1_70CM": 34,
+          "ITU2_70CM": 35,
+          "ITU3_70CM": 36,
+          "ITU2_125CM": 37
+        }
+      },
+      {
+        "key": "hopLimit",
+        "label": "Hop Limit",
+        "kind": "uint32"
+      },
+      {
+        "key": "txEnabled",
+        "label": "Tx Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "txPower",
+        "label": "Tx Power",
+        "kind": "int32"
+      },
+      {
+        "key": "channelNum",
+        "label": "Channel Num",
+        "kind": "uint32"
+      },
+      {
+        "key": "overrideDutyCycle",
+        "label": "Override Duty Cycle",
+        "kind": "bool"
+      },
+      {
+        "key": "sx126xRxBoostedGain",
+        "label": "Sx126x Rx Boosted Gain",
+        "kind": "bool"
+      },
+      {
+        "key": "overrideFrequency",
+        "label": "Override Frequency",
+        "kind": "float"
+      },
+      {
+        "key": "paFanDisabled",
+        "label": "Pa Fan Disabled",
+        "kind": "bool"
+      },
+      {
+        "key": "ignoreIncoming",
+        "label": "Ignore Incoming",
+        "kind": "json",
+        "array": true
+      },
+      {
+        "key": "ignoreMqtt",
+        "label": "Ignore Mqtt",
+        "kind": "bool"
+      },
+      {
+        "key": "configOkToMqtt",
+        "label": "Config Ok To Mqtt",
+        "kind": "bool"
+      },
+      {
+        "key": "femLnaMode",
+        "label": "Fem Lna Mode",
+        "kind": "enum",
+        "options": {
+          "DISABLED": 0,
+          "ENABLED": 1,
+          "NOT_PRESENT": 2
+        }
+      },
+      {
+        "key": "serialHalOnly",
+        "label": "Serial Hal Only",
+        "kind": "bool"
+      },
+      {
+        "key": "transparentMode",
+        "label": "Transparent Mode",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "bluetooth",
+    "kind": "device",
+    "adminType": 6,
+    "field": "bluetooth",
+    "label": "Bluetooth",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "mode",
+        "label": "Mode",
+        "kind": "enum",
+        "options": {
+          "RANDOM_PIN": 0,
+          "FIXED_PIN": 1,
+          "NO_PIN": 2
+        }
+      },
+      {
+        "key": "fixedPin",
+        "label": "Fixed Pin",
+        "kind": "uint32"
+      }
+    ]
+  },
+  {
+    "id": "security",
+    "kind": "device",
+    "adminType": 7,
+    "field": "security",
+    "label": "Security",
+    "fields": [
+      {
+        "key": "publicKey",
+        "label": "Public Key",
+        "kind": "bytes"
+      },
+      {
+        "key": "privateKey",
+        "label": "Private Key",
+        "kind": "bytes"
+      },
+      {
+        "key": "adminKey",
+        "label": "Admin Key",
+        "kind": "json",
+        "array": true
+      },
+      {
+        "key": "isManaged",
+        "label": "Is Managed",
+        "kind": "bool"
+      },
+      {
+        "key": "serialEnabled",
+        "label": "Serial Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "debugLogApiEnabled",
+        "label": "Debug Log Api Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "adminChannelEnabled",
+        "label": "Admin Channel Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "packetSignaturePolicy",
+        "label": "Packet Signature Policy",
+        "kind": "enum",
+        "options": {
+          "PACKET_SIGNATURE_POLICY_COMPATIBLE": 0,
+          "PACKET_SIGNATURE_POLICY_BALANCED": 1,
+          "PACKET_SIGNATURE_POLICY_STRICT": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "deviceui",
+    "kind": "device",
+    "adminType": 9,
+    "field": "deviceUi",
+    "label": "Device UI",
+    "fields": [
+      {
+        "key": "version",
+        "label": "Version",
+        "kind": "uint32"
+      },
+      {
+        "key": "screenBrightness",
+        "label": "Screen Brightness",
+        "kind": "uint32"
+      },
+      {
+        "key": "screenTimeout",
+        "label": "Screen Timeout",
+        "kind": "uint32"
+      },
+      {
+        "key": "screenLock",
+        "label": "Screen Lock",
+        "kind": "bool"
+      },
+      {
+        "key": "settingsLock",
+        "label": "Settings Lock",
+        "kind": "bool"
+      },
+      {
+        "key": "pinCode",
+        "label": "Pin Code",
+        "kind": "uint32"
+      },
+      {
+        "key": "theme",
+        "label": "Theme",
+        "kind": "enum",
+        "options": {
+          "DARK": 0,
+          "LIGHT": 1,
+          "RED": 2
+        }
+      },
+      {
+        "key": "alertEnabled",
+        "label": "Alert Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "bannerEnabled",
+        "label": "Banner Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "ringToneId",
+        "label": "Ring Tone Id",
+        "kind": "uint32"
+      },
+      {
+        "key": "language",
+        "label": "Language",
+        "kind": "enum",
+        "options": {
+          "ENGLISH": 0,
+          "FRENCH": 1,
+          "GERMAN": 2,
+          "ITALIAN": 3,
+          "PORTUGUESE": 4,
+          "SPANISH": 5,
+          "SWEDISH": 6,
+          "FINNISH": 7,
+          "POLISH": 8,
+          "TURKISH": 9,
+          "SERBIAN": 10,
+          "RUSSIAN": 11,
+          "DUTCH": 12,
+          "GREEK": 13,
+          "NORWEGIAN": 14,
+          "SLOVENIAN": 15,
+          "UKRAINIAN": 16,
+          "BULGARIAN": 17,
+          "CZECH": 18,
+          "DANISH": 19,
+          "HUNGARIAN": 20,
+          "AZERBAIJANI": 21,
+          "SIMPLIFIED_CHINESE": 30,
+          "TRADITIONAL_CHINESE": 31
+        }
+      },
+      {
+        "key": "nodeFilter",
+        "label": "Node Filter",
+        "kind": "json"
+      },
+      {
+        "key": "nodeHighlight",
+        "label": "Node Highlight",
+        "kind": "json"
+      },
+      {
+        "key": "calibrationData",
+        "label": "Calibration Data",
+        "kind": "bytes"
+      },
+      {
+        "key": "mapData",
+        "label": "Map Data",
+        "kind": "json"
+      },
+      {
+        "key": "compassMode",
+        "label": "Compass Mode",
+        "kind": "enum",
+        "options": {
+          "DYNAMIC": 0,
+          "FIXED_RING": 1,
+          "FREEZE_HEADING": 2
+        }
+      },
+      {
+        "key": "screenRgbColor",
+        "label": "Screen Rgb Color",
+        "kind": "uint32"
+      },
+      {
+        "key": "isClockfaceAnalog",
+        "label": "Is Clockface Analog",
+        "kind": "bool"
+      },
+      {
+        "key": "gpsFormat",
+        "label": "Gps Format",
+        "kind": "enum",
+        "options": {
+          "DEC": 0,
+          "DMS": 1,
+          "UTM": 2,
+          "MGRS": 3,
+          "OLC": 4,
+          "OSGR": 5,
+          "MLS": 6
+        }
+      }
+    ]
+  },
+  {
+    "id": "mqtt",
+    "kind": "module",
+    "adminType": 0,
+    "field": "mqtt",
+    "label": "MQTT",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "address",
+        "label": "Address",
+        "kind": "string"
+      },
+      {
+        "key": "username",
+        "label": "Username",
+        "kind": "string"
+      },
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "string"
+      },
+      {
+        "key": "encryptionEnabled",
+        "label": "Encryption Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "jsonEnabled",
+        "label": "Json Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "tlsEnabled",
+        "label": "Tls Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "root",
+        "label": "Root",
+        "kind": "string"
+      },
+      {
+        "key": "proxyToClientEnabled",
+        "label": "Proxy To Client Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "mapReportingEnabled",
+        "label": "Map Reporting Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "mapReportSettings",
+        "label": "Map Report Settings",
+        "kind": "json"
+      }
+    ]
+  },
+  {
+    "id": "serial",
+    "kind": "module",
+    "adminType": 1,
+    "field": "serial",
+    "label": "Serial",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "echo",
+        "label": "Echo",
+        "kind": "bool"
+      },
+      {
+        "key": "rxd",
+        "label": "Rxd",
+        "kind": "uint32"
+      },
+      {
+        "key": "txd",
+        "label": "Txd",
+        "kind": "uint32"
+      },
+      {
+        "key": "baud",
+        "label": "Baud",
+        "kind": "enum",
+        "options": {
+          "BAUD_DEFAULT": 0,
+          "BAUD_110": 1,
+          "BAUD_300": 2,
+          "BAUD_600": 3,
+          "BAUD_1200": 4,
+          "BAUD_2400": 5,
+          "BAUD_4800": 6,
+          "BAUD_9600": 7,
+          "BAUD_19200": 8,
+          "BAUD_38400": 9,
+          "BAUD_57600": 10,
+          "BAUD_115200": 11,
+          "BAUD_230400": 12,
+          "BAUD_460800": 13,
+          "BAUD_576000": 14,
+          "BAUD_921600": 15
+        }
+      },
+      {
+        "key": "timeout",
+        "label": "Timeout",
+        "kind": "uint32"
+      },
+      {
+        "key": "mode",
+        "label": "Mode",
+        "kind": "enum",
+        "options": {
+          "DEFAULT": 0,
+          "SIMPLE": 1,
+          "PROTO": 2,
+          "TEXTMSG": 3,
+          "NMEA": 4,
+          "CALTOPO": 5,
+          "WS85": 6,
+          "VE_DIRECT": 7,
+          "MS_CONFIG": 8,
+          "LOG": 9,
+          "LOGTEXT": 10,
+          "MODBUS": 11
+        }
+      },
+      {
+        "key": "overrideConsoleSerialPort",
+        "label": "Override Console Serial Port",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "extnotif",
+    "kind": "module",
+    "adminType": 2,
+    "field": "externalNotification",
+    "label": "External notification",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "outputMs",
+        "label": "Output Ms",
+        "kind": "uint32"
+      },
+      {
+        "key": "output",
+        "label": "Output",
+        "kind": "uint32"
+      },
+      {
+        "key": "outputVibra",
+        "label": "Output Vibra",
+        "kind": "uint32"
+      },
+      {
+        "key": "outputBuzzer",
+        "label": "Output Buzzer",
+        "kind": "uint32"
+      },
+      {
+        "key": "active",
+        "label": "Active",
+        "kind": "bool"
+      },
+      {
+        "key": "alertMessage",
+        "label": "Alert Message",
+        "kind": "bool"
+      },
+      {
+        "key": "alertMessageVibra",
+        "label": "Alert Message Vibra",
+        "kind": "bool"
+      },
+      {
+        "key": "alertMessageBuzzer",
+        "label": "Alert Message Buzzer",
+        "kind": "bool"
+      },
+      {
+        "key": "alertBell",
+        "label": "Alert Bell",
+        "kind": "bool"
+      },
+      {
+        "key": "alertBellVibra",
+        "label": "Alert Bell Vibra",
+        "kind": "bool"
+      },
+      {
+        "key": "alertBellBuzzer",
+        "label": "Alert Bell Buzzer",
+        "kind": "bool"
+      },
+      {
+        "key": "usePwm",
+        "label": "Use Pwm",
+        "kind": "bool"
+      },
+      {
+        "key": "nagTimeout",
+        "label": "Nag Timeout",
+        "kind": "uint32"
+      },
+      {
+        "key": "useI2sAsBuzzer",
+        "label": "Use I2s As Buzzer",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "storeforward",
+    "kind": "module",
+    "adminType": 3,
+    "field": "storeForward",
+    "label": "Store and forward",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "heartbeat",
+        "label": "Heartbeat",
+        "kind": "bool"
+      },
+      {
+        "key": "records",
+        "label": "Records",
+        "kind": "uint32"
+      },
+      {
+        "key": "historyReturnMax",
+        "label": "History Return Max",
+        "kind": "uint32"
+      },
+      {
+        "key": "historyReturnWindow",
+        "label": "History Return Window",
+        "kind": "uint32"
+      },
+      {
+        "key": "isServer",
+        "label": "Is Server",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "rangetest",
+    "kind": "module",
+    "adminType": 4,
+    "field": "rangeTest",
+    "label": "Range test",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "sender",
+        "label": "Sender",
+        "kind": "uint32"
+      },
+      {
+        "key": "save",
+        "label": "Save",
+        "kind": "bool"
+      },
+      {
+        "key": "clearOnReboot",
+        "label": "Clear On Reboot",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "telemetry",
+    "kind": "module",
+    "adminType": 5,
+    "field": "telemetry",
+    "label": "Telemetry",
+    "fields": [
+      {
+        "key": "deviceUpdateInterval",
+        "label": "Device Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "environmentUpdateInterval",
+        "label": "Environment Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "environmentMeasurementEnabled",
+        "label": "Environment Measurement Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "environmentScreenEnabled",
+        "label": "Environment Screen Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "environmentDisplayFahrenheit",
+        "label": "Environment Display Fahrenheit",
+        "kind": "bool"
+      },
+      {
+        "key": "airQualityEnabled",
+        "label": "Air Quality Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "airQualityInterval",
+        "label": "Air Quality Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "powerMeasurementEnabled",
+        "label": "Power Measurement Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "powerUpdateInterval",
+        "label": "Power Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "powerScreenEnabled",
+        "label": "Power Screen Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "healthMeasurementEnabled",
+        "label": "Health Measurement Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "healthUpdateInterval",
+        "label": "Health Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "healthScreenEnabled",
+        "label": "Health Screen Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "deviceTelemetryEnabled",
+        "label": "Device Telemetry Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "airQualityScreenEnabled",
+        "label": "Air Quality Screen Enabled",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "cannedmsg",
+    "kind": "module",
+    "adminType": 6,
+    "field": "cannedMessage",
+    "label": "Canned messages",
+    "fields": [
+      {
+        "key": "rotary1Enabled",
+        "label": "Rotary1 Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "inputbrokerPinA",
+        "label": "Inputbroker Pin A",
+        "kind": "uint32"
+      },
+      {
+        "key": "inputbrokerPinB",
+        "label": "Inputbroker Pin B",
+        "kind": "uint32"
+      },
+      {
+        "key": "inputbrokerPinPress",
+        "label": "Inputbroker Pin Press",
+        "kind": "uint32"
+      },
+      {
+        "key": "inputbrokerEventCw",
+        "label": "Inputbroker Event Cw",
+        "kind": "enum",
+        "options": {
+          "NONE": 0,
+          "UP": 17,
+          "DOWN": 18,
+          "LEFT": 19,
+          "RIGHT": 20,
+          "SELECT": 10,
+          "BACK": 27,
+          "CANCEL": 24
+        }
+      },
+      {
+        "key": "inputbrokerEventCcw",
+        "label": "Inputbroker Event Ccw",
+        "kind": "enum",
+        "options": {
+          "NONE": 0,
+          "UP": 17,
+          "DOWN": 18,
+          "LEFT": 19,
+          "RIGHT": 20,
+          "SELECT": 10,
+          "BACK": 27,
+          "CANCEL": 24
+        }
+      },
+      {
+        "key": "inputbrokerEventPress",
+        "label": "Inputbroker Event Press",
+        "kind": "enum",
+        "options": {
+          "NONE": 0,
+          "UP": 17,
+          "DOWN": 18,
+          "LEFT": 19,
+          "RIGHT": 20,
+          "SELECT": 10,
+          "BACK": 27,
+          "CANCEL": 24
+        }
+      },
+      {
+        "key": "updown1Enabled",
+        "label": "Updown1 Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "allowInputSource",
+        "label": "Allow Input Source",
+        "kind": "string"
+      },
+      {
+        "key": "sendBell",
+        "label": "Send Bell",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "audio",
+    "kind": "module",
+    "adminType": 7,
+    "field": "audio",
+    "label": "Audio",
+    "fields": [
+      {
+        "key": "codec2Enabled",
+        "label": "Codec2 Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "pttPin",
+        "label": "Ptt Pin",
+        "kind": "uint32"
+      },
+      {
+        "key": "bitrate",
+        "label": "Bitrate",
+        "kind": "enum",
+        "options": {
+          "CODEC2_DEFAULT": 0,
+          "CODEC2_3200": 1,
+          "CODEC2_2400": 2,
+          "CODEC2_1600": 3,
+          "CODEC2_1400": 4,
+          "CODEC2_1300": 5,
+          "CODEC2_1200": 6,
+          "CODEC2_700": 7,
+          "CODEC2_700B": 8,
+          "CODEC2_700C": 9,
+          "CODEC2_450": 10
+        }
+      },
+      {
+        "key": "i2sWs",
+        "label": "I2s Ws",
+        "kind": "uint32"
+      },
+      {
+        "key": "i2sSd",
+        "label": "I2s Sd",
+        "kind": "uint32"
+      },
+      {
+        "key": "i2sDin",
+        "label": "I2s Din",
+        "kind": "uint32"
+      },
+      {
+        "key": "i2sSck",
+        "label": "I2s Sck",
+        "kind": "uint32"
+      }
+    ]
+  },
+  {
+    "id": "remotehardware",
+    "kind": "module",
+    "adminType": 8,
+    "field": "remoteHardware",
+    "label": "Remote hardware",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "allowUndefinedPinAccess",
+        "label": "Allow Undefined Pin Access",
+        "kind": "bool"
+      },
+      {
+        "key": "availablePins",
+        "label": "Available Pins",
+        "kind": "json",
+        "array": true
+      }
+    ]
+  },
+  {
+    "id": "neighborinfo",
+    "kind": "module",
+    "adminType": 9,
+    "field": "neighborInfo",
+    "label": "Neighbor info",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "updateInterval",
+        "label": "Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "transmitOverLora",
+        "label": "Transmit Over Lora",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "ambientlighting",
+    "kind": "module",
+    "adminType": 10,
+    "field": "ambientLighting",
+    "label": "Ambient lighting",
+    "fields": [
+      {
+        "key": "ledState",
+        "label": "Led State",
+        "kind": "bool"
+      },
+      {
+        "key": "current",
+        "label": "Current",
+        "kind": "uint32"
+      },
+      {
+        "key": "red",
+        "label": "Red",
+        "kind": "uint32"
+      },
+      {
+        "key": "green",
+        "label": "Green",
+        "kind": "uint32"
+      },
+      {
+        "key": "blue",
+        "label": "Blue",
+        "kind": "uint32"
+      }
+    ]
+  },
+  {
+    "id": "detectionsensor",
+    "kind": "module",
+    "adminType": 11,
+    "field": "detectionSensor",
+    "label": "Detection sensor",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "minimumBroadcastSecs",
+        "label": "Minimum Broadcast Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "stateBroadcastSecs",
+        "label": "State Broadcast Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "sendBell",
+        "label": "Send Bell",
+        "kind": "bool"
+      },
+      {
+        "key": "name",
+        "label": "Name",
+        "kind": "string"
+      },
+      {
+        "key": "monitorPin",
+        "label": "Monitor Pin",
+        "kind": "uint32"
+      },
+      {
+        "key": "detectionTriggerType",
+        "label": "Detection Trigger Type",
+        "kind": "enum",
+        "options": {
+          "LOGIC_LOW": 0,
+          "LOGIC_HIGH": 1,
+          "FALLING_EDGE": 2,
+          "RISING_EDGE": 3,
+          "EITHER_EDGE_ACTIVE_LOW": 4,
+          "EITHER_EDGE_ACTIVE_HIGH": 5
+        }
+      },
+      {
+        "key": "usePullup",
+        "label": "Use Pullup",
+        "kind": "bool"
+      }
+    ]
+  },
+  {
+    "id": "paxcounter",
+    "kind": "module",
+    "adminType": 12,
+    "field": "paxcounter",
+    "label": "PAX counter",
+    "fields": [
+      {
+        "key": "enabled",
+        "label": "Enabled",
+        "kind": "bool"
+      },
+      {
+        "key": "paxcounterUpdateInterval",
+        "label": "Paxcounter Update Interval",
+        "kind": "uint32"
+      },
+      {
+        "key": "wifiThreshold",
+        "label": "Wifi Threshold",
+        "kind": "int32"
+      },
+      {
+        "key": "bleThreshold",
+        "label": "Ble Threshold",
+        "kind": "int32"
+      }
+    ]
+  },
+  {
+    "id": "statusmessage",
+    "kind": "module",
+    "adminType": 13,
+    "field": "statusmessage",
+    "label": "Status message",
+    "fields": [
+      {
+        "key": "nodeStatus",
+        "label": "Node Status",
+        "kind": "string"
+      }
+    ]
+  },
+  {
+    "id": "trafficmanagement",
+    "kind": "module",
+    "adminType": 14,
+    "field": "trafficManagement",
+    "label": "Traffic management",
+    "fields": [
+      {
+        "key": "positionMinIntervalSecs",
+        "label": "Position Min Interval Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "nodeinfoDirectResponseMaxHops",
+        "label": "Nodeinfo Direct Response Max Hops",
+        "kind": "uint32"
+      },
+      {
+        "key": "rateLimitWindowSecs",
+        "label": "Rate Limit Window Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "rateLimitMaxPackets",
+        "label": "Rate Limit Max Packets",
+        "kind": "uint32"
+      },
+      {
+        "key": "unknownPacketThreshold",
+        "label": "Unknown Packet Threshold",
+        "kind": "uint32"
+      }
+    ]
+  },
+  {
+    "id": "tak",
+    "kind": "module",
+    "adminType": 15,
+    "field": "tak",
+    "label": "TAK",
+    "fields": [
+      {
+        "key": "team",
+        "label": "Team",
+        "kind": "enum",
+        "options": {
+          "Unspecifed_Color": 0,
+          "White": 1,
+          "Yellow": 2,
+          "Orange": 3,
+          "Magenta": 4,
+          "Red": 5,
+          "Maroon": 6,
+          "Purple": 7,
+          "Dark_Blue": 8,
+          "Blue": 9,
+          "Cyan": 10,
+          "Teal": 11,
+          "Green": 12,
+          "Dark_Green": 13,
+          "Brown": 14
+        }
+      },
+      {
+        "key": "role",
+        "label": "Role",
+        "kind": "enum",
+        "options": {
+          "Unspecifed": 0,
+          "TeamMember": 1,
+          "TeamLead": 2,
+          "HQ": 3,
+          "Sniper": 4,
+          "Medic": 5,
+          "ForwardObserver": 6,
+          "RTO": 7,
+          "K9": 8
+        }
+      }
+    ]
+  },
+  {
+    "id": "meshbeacon",
+    "kind": "module",
+    "adminType": 16,
+    "field": "meshBeacon",
+    "label": "Mesh beacon",
+    "fields": [
+      {
+        "key": "flags",
+        "label": "Flags",
+        "kind": "uint32"
+      },
+      {
+        "key": "broadcastOfferFrequencySlot",
+        "label": "Broadcast Offer Frequency Slot",
+        "kind": "uint32"
+      },
+      {
+        "key": "broadcastMessage",
+        "label": "Broadcast Message",
+        "kind": "string"
+      },
+      {
+        "key": "broadcastOfferChannel",
+        "label": "Broadcast Offer Channel",
+        "kind": "json"
+      },
+      {
+        "key": "broadcastOfferRegion",
+        "label": "Broadcast Offer Region",
+        "kind": "enum",
+        "options": {
+          "UNSET": 0,
+          "US": 1,
+          "EU_433": 2,
+          "EU_868": 3,
+          "CN": 4,
+          "JP": 5,
+          "ANZ": 6,
+          "KR": 7,
+          "TW": 8,
+          "RU": 9,
+          "IN": 10,
+          "NZ_865": 11,
+          "TH": 12,
+          "LORA_24": 13,
+          "UA_433": 14,
+          "UA_868": 15,
+          "MY_433": 16,
+          "MY_919": 17,
+          "SG_923": 18,
+          "PH_433": 19,
+          "PH_868": 20,
+          "PH_915": 21,
+          "ANZ_433": 22,
+          "KZ_433": 23,
+          "KZ_863": 24,
+          "NP_865": 25,
+          "BR_902": 26,
+          "ITU1_2M": 27,
+          "ITU2_2M": 28,
+          "EU_866": 29,
+          "EU_874": 30,
+          "EU_917": 31,
+          "EU_N_868": 32,
+          "ITU3_2M": 33,
+          "ITU1_70CM": 34,
+          "ITU2_70CM": 35,
+          "ITU3_70CM": 36,
+          "ITU2_125CM": 37
+        }
+      },
+      {
+        "key": "broadcastOfferPreset",
+        "label": "Broadcast Offer Preset",
+        "kind": "enum",
+        "options": {
+          "LONG_FAST": 0,
+          "LONG_SLOW": 1,
+          "VERY_LONG_SLOW": 2,
+          "MEDIUM_SLOW": 3,
+          "MEDIUM_FAST": 4,
+          "SHORT_SLOW": 5,
+          "SHORT_FAST": 6,
+          "LONG_MODERATE": 7,
+          "SHORT_TURBO": 8,
+          "LONG_TURBO": 9,
+          "LITE_FAST": 10,
+          "LITE_SLOW": 11,
+          "NARROW_FAST": 12,
+          "NARROW_SLOW": 13,
+          "TINY_FAST": 14,
+          "TINY_SLOW": 15,
+          "MEDIUM_TURBO": 16
+        }
+      },
+      {
+        "key": "broadcastIntervalSecs",
+        "label": "Broadcast Interval Secs",
+        "kind": "uint32"
+      },
+      {
+        "key": "broadcastTargets",
+        "label": "Broadcast Targets",
+        "kind": "json",
+        "array": true
+      }
+    ]
+  }
+]

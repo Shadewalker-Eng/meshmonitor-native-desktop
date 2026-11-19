@@ -163,6 +163,8 @@ public sealed partial class MainWindow : Window
     {
         signedIn = false;
         canReadSourceSettings = canWriteSources = false;
+        radioPermissions = default;
+        radioAdmin = false;
         needsCode = false;
         timer.Stop();
         Workspace.Visibility = Visibility.Collapsed;
@@ -187,6 +189,8 @@ public sealed partial class MainWindow : Window
         if (closed) return;
         signedIn = status.Flag("authenticated") == true;
         bool isAdmin = signedIn && status.Property("user").Flag("isAdmin") == true;
+        radioAdmin = isAdmin;
+        radioPermissions = status.Property("permissions").Property("bySource");
         var grants = status.Property("permissions").Property("global").Property("sources");
         canWriteSources = signedIn && (isAdmin || grants.Flag("write") == true);
         canReadSourceSettings = signedIn && (isAdmin || grants.Flag("read") == true);
@@ -344,6 +348,8 @@ public sealed partial class MainWindow : Window
         SourceName.Text = source.Name;
         EditSource.Visibility = !source.IsUnified && canWriteSources ? Visibility.Visible : Visibility.Collapsed;
         ConnectionDiagnostics.Visibility = source.IsUnified ? Visibility.Collapsed : Visibility.Visible;
+        RadioSettings.Visibility = source.Type is "meshtastic_tcp" or "meshcore" && HasRadioGrant(source, "read")
+            ? Visibility.Visible : Visibility.Collapsed;
         SourceHeader.Visibility = Visibility.Visible;
         Activity.Visibility = Visibility.Visible;
         NoSource.Visibility = Visibility.Collapsed;
@@ -525,6 +531,7 @@ public sealed partial class MainWindow : Window
         UpdateConversationActions();
         SignIn.IsEnabled = Refresh.IsEnabled = AddSource.IsEnabled = ConnectionAction.IsEnabled = SendMessage.IsEnabled = false;
         EditSource.IsEnabled = ConnectionDiagnostics.IsEnabled = false;
+        RadioSettings.IsEnabled = false;
         SourcesList.IsEnabled = Activity.IsEnabled = ChangePassword.IsEnabled = SignOut.IsEnabled = false;
         if (clearNotice) Notice.IsOpen = false;
         try { await action(client); }
@@ -546,6 +553,7 @@ public sealed partial class MainWindow : Window
                 UpdateConversationActions();
                 SignIn.IsEnabled = Refresh.IsEnabled = AddSource.IsEnabled = ConnectionAction.IsEnabled = SendMessage.IsEnabled = true;
                 EditSource.IsEnabled = ConnectionDiagnostics.IsEnabled = true;
+                RadioSettings.IsEnabled = true;
                 SourcesList.IsEnabled = Activity.IsEnabled = ChangePassword.IsEnabled = SignOut.IsEnabled = true;
             }
         }
