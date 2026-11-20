@@ -41,6 +41,7 @@ public sealed partial class MainWindow
     {
         if (FavoriteReading is null || CompareFavorites is null) return;
         var row = TelemetryList.SelectedItem as TelemetryRow;
+        PinReading.IsEnabled = !busy && row is { HasHistory: true };
         FavoriteReading.Content = row?.Favorited == true ? "Remove favorite" : "Add favorite";
         FavoriteReading.IsEnabled = !busy && row is { HasHistory: true, CanEditFavorite: true };
         CompareFavorites.IsEnabled = !busy;
@@ -73,6 +74,8 @@ public sealed partial class MainWindow
         var layout = new StackPanel { Spacing = 10 };
         layout.Children.Add(range);
         layout.Children.Add(metric);
+        var pin = new Button { Content = "Pin comparison", IsEnabled = false };
+        layout.Children.Add(pin);
         layout.Children.Add(chart);
         layout.Children.Add(dates);
         layout.Children.Add(status);
@@ -87,6 +90,7 @@ public sealed partial class MainWindow
         void ShowSelection()
         {
             selected = metric.SelectedIndex >= 0 ? options[metric.SelectedIndex] : null;
+            pin.IsEnabled = selected is not null;
             DrawTelemetryLines(chart, selected?.Lines ?? []);
             legend.Children.Clear();
             dates.Text = "";
@@ -124,7 +128,7 @@ public sealed partial class MainWindow
             if (range.SelectedIndex < 0) return;
             int request = ++generation;
             var key = selected?.Key;
-            metric.IsEnabled = false;
+            metric.IsEnabled = pin.IsEnabled = false;
             status.Text = "Loading favorite metrics…";
             try
             {
@@ -145,6 +149,7 @@ public sealed partial class MainWindow
             {
                 if (!showing || closed || request != generation) return;
                 selected = null;
+                pin.IsEnabled = false;
                 DrawTelemetryLines(chart, []);
                 dates.Text = "";
                 legend.Children.Clear();
@@ -156,6 +161,17 @@ public sealed partial class MainWindow
             }
         }
 
+        pin.Click += (_, _) =>
+        {
+            if (selected is null) return;
+            try
+            {
+                PinChart(new("", selected.NodeId, selected.NodeName, selected.Type, selected.Unit,
+                    windows[range.SelectedIndex].Hours));
+                status.Text = "Comparison pinned. Open Dashboard under Unified to view it.";
+            }
+            catch (Exception error) { status.Text = error.Message; }
+        };
         metric.SelectionChanged += (_, _) => { if (!updating) ShowSelection(); };
         range.SelectionChanged += async (_, _) => await LoadAsync();
         var dialog = DetailDialog("Compare favorite telemetry", layout);

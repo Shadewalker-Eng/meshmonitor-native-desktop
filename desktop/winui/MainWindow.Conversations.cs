@@ -64,7 +64,7 @@ public sealed partial class MainWindow
         JsonElement unread = default;
         if (signedIn && source.Type == "meshtastic_tcp")
         {
-            try { unread = await api.ChannelUnread(source); }
+            try { unread = await api.UnreadCounts(source); }
             catch (HttpRequestException error) when (error.StatusCode == System.Net.HttpStatusCode.Forbidden) { }
         }
         if (closed) return;
@@ -153,10 +153,23 @@ public sealed partial class MainWindow
 
     private void RefreshConversationPicker(JsonElement unread = default)
     {
+        var channelCounts = unread.Property("channels");
+        var directCounts = unread.Property("directMessages");
+        if (directCounts.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var count in directCounts.EnumerateObject())
+            {
+                if (!Conversation.ValidPeer(count.Name, false)) continue;
+                var thread = Conversation.ForPeer(count.Name);
+                conversations.TryAdd(thread.Key, thread);
+            }
+        }
         if (unread.ValueKind == JsonValueKind.Object)
             foreach (var item in conversations.Values.ToArray())
                 if (item.Channel is int channel)
-                    conversations[item.Key] = item with { Unread = (int)(unread.Number(channel.ToString()) ?? 0) };
+                    conversations[item.Key] = item with { Unread = (int)(channelCounts.Number(channel.ToString()) ?? 0) };
+                else if (item.Peer is { } peer)
+                    conversations[item.Key] = item with { Unread = (int)(directCounts.Number(peer) ?? 0) };
 
         List<Conversation> items = [Conversation.Recent, .. conversations.Values
             .OrderBy(item => item.Peer is not null).ThenBy(item => item.Channel).ThenBy(item => item.Label)];
@@ -259,6 +272,26 @@ public sealed partial class MainWindow
         MessageText.Focus(FocusState.Programmatic);
     }
 
+    private bool CanReact(SourceRow source)
+    {
+        string resource = activeConversation.Channel is int channel ? $"channel_{channel}" : "messages";
+        return CanReplyToSelection() && (radioAdmin || radioPermissions.Property(source.Id).Property(resource).Flag("write") == true);
+    }
+
+    private async void OnReact(object sender, RoutedEventArgs args) => await RunAsync(async client =>
+    {
+        if (SourcesList.SelectedItem is not SourceRow source || !CanReact(source) ||
+            MessagesList.SelectedItem is not MessageRow { PacketId: uint packet } selected) return;
+        var thread = activeConversation;
+        var emoji = new ComboBox { Header = "Reaction", ItemsSource = new[] { "👍", "❤️", "😂", "🎉", "👎", "❓" }, SelectedIndex = 0 };
+        var dialog = Form("React to message", "Send reaction", Wrapped($"{selected.Sender} · {Conversation.Quote(selected.Text)}"), emoji);
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || closed) return;
+        await client.SendReaction(source, thread, packet, (string)emoji.SelectedItem);
+        if (closed) return;
+        ShowNotice("The backend accepted the reaction.", InfoBarSeverity.Success);
+        if (!showingOlder) await LoadConversationAsync(source);
+    });
+
     private void OnCancelReply(object sender, RoutedEventArgs args) => ClearReply();
 
     private void ClearReply()
@@ -277,13 +310,15 @@ public sealed partial class MainWindow
 
     private async void OnMarkRead(object sender, RoutedEventArgs args) => await RunAsync(async client =>
     {
-        if (!signedIn || SourcesList.SelectedItem is not SourceRow { Type: "meshtastic_tcp" } source ||
-            activeConversation.Channel is not int channel) return;
-        await client.MarkChannelRead(source, channel);
+        if (!signedIn || SourcesList.SelectedItem is not SourceRow { Type: "meshtastic_tcp" } source) return;
+        if (activeConversation.Channel is int channel) await client.MarkChannelRead(source, channel);
+        else if (activeConversation.Peer is not null && localMessageNode is { } local)
+            await client.MarkDirectRead(source, activeConversation, local);
+        else return;
         if (closed) return;
         if (showingOlder)
         {
-            var unread = await client.ChannelUnread(source);
+            var unread = await client.UnreadCounts(source);
             if (!closed) RefreshConversationPicker(unread);
         }
         else await LoadConversationAsync(source);
@@ -296,7 +331,10 @@ public sealed partial class MainWindow
         bool allowReply = CanReplyToSelection();
         ReplyMessage.Visibility = allowReply ? Visibility.Visible : Visibility.Collapsed;
         ReplyMessage.IsEnabled = allowReply && !busy;
-        bool allowRead = signedIn && activeConversation.Channel is not null &&
+        bool allowReaction = SourcesList.SelectedItem is SourceRow source && CanReact(source);
+        ReactMessage.Visibility = allowReaction ? Visibility.Visible : Visibility.Collapsed;
+        ReactMessage.IsEnabled = allowReaction && !busy;
+        bool allowRead = signedIn && (activeConversation.Channel is not null || (activeConversation.Peer is not null && localMessageNode is not null)) &&
             SourcesList.SelectedItem is SourceRow { Type: "meshtastic_tcp" };
         MarkRead.Visibility = allowRead ? Visibility.Visible : Visibility.Collapsed;
         MarkRead.IsEnabled = allowRead && !busy;

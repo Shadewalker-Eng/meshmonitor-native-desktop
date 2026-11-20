@@ -24,6 +24,17 @@ internal sealed partial class MeshApi
         return target;
     }
 
+    internal async Task<JsonElement> ReadRemoteDeviceMetadata(SourceRow source, string nodeId)
+    {
+        uint nodeNum = await RemoteNodeNumber(source, nodeId);
+        var reply = await RequestAsync("api/admin/get-device-metadata",
+            new { sourceId = source.Id, nodeNum, desktopRemoteOnly = true }, timeout: TimeSpan.FromSeconds(80));
+        var metadata = reply.Property("deviceMetadata");
+        if (metadata.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException("The selected radio did not return device information.");
+        return metadata;
+    }
+
     internal async Task<JsonElement> ReadRemoteRadio(SourceRow source, string nodeId, RadioSection section)
     {
         uint nodeNum = await RemoteNodeNumber(source, nodeId);
@@ -75,7 +86,18 @@ internal sealed partial class MeshApi
         return await RequestAsync("api/admin/commands", body);
     }
 
-    internal async Task TrackRemoteRadioSave(JsonElement accepted, Action<string> report, CancellationToken stopWatching,
+    internal async Task<string> StopRemoteVerification(string jobId)
+    {
+        var reply = await RequestAsync($"api/admin/verify-jobs/{Uri.EscapeDataString(jobId)}/cancel", new { });
+        var job = reply.Property("data");
+        if (job.String("id") != jobId || job.String("status") is not string status)
+            throw new InvalidOperationException("The backend did not confirm the verification status.");
+        return status == "cancelled"
+            ? "Verification stopped. Settings already applied on the radio stay in place."
+            : $"Verification already ended ({status.Replace('_', ' ')}).";
+    }
+
+    internal async Task<bool> TrackRemoteRadioSave(JsonElement accepted, Action<string> report, CancellationToken stopWatching,
         bool follow = true)
     {
         string? job = accepted.String("verifyJobId");
@@ -88,7 +110,7 @@ internal sealed partial class MeshApi
                 ? (await RequestAsync($"api/admin/operations/{Uri.EscapeDataString(operation!)}")).Property("data")
                 : (await RequestAsync("api/admin/verify-jobs")).Property("data").EnumerateArray()
                     .FirstOrDefault(item => item.String("id") == job);
-            if (stopWatching.IsCancellationRequested) return;
+            if (stopWatching.IsCancellationRequested) return false;
             string? status = state.String("status");
             string? detail = state.Property("error").String("message");
             string? progress = status switch
@@ -112,15 +134,16 @@ internal sealed partial class MeshApi
                     "differs" => "The remote radio returned different settings.",
                     "refused" or "rejected" => detail ?? "The remote radio refused the save.",
                     "gave_up" or "timed_out" => "The remote radio did not confirm the save in time.",
-                    "cancelled" => "The backend cancelled the remote save.",
+                    "cancelled" => "Verification stopped. Settings already applied on the radio stay in place.",
                     "failed" => detail ?? "The remote save failed.",
                     _ => "The remote operation status is unavailable."
                 });
-                return;
+                return false;
             }
             report(progress);
-            if (!follow) return;
+            if (!follow) return job is not null && status is "waiting" or "checking" or "resending";
             await Task.Delay(TimeSpan.FromSeconds(2), stopWatching);
         }
+        return false;
     }
 }

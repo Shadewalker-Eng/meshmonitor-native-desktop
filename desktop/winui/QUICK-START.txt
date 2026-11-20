@@ -1,0 +1,64 @@
+MeshMonitor native preview for Windows x64
+
+Open MeshMonitor.Native.exe from this folder. Keep the bundled files
+and resources folder alongside it.
+
+Version 27 adds a Tools menu for nodes and radios, message history and channels,
+automations, notifications, map layers and telemetry, packet reports, and source
+integrations including Reticulum. Select a source to see applicable actions.
+
+Select a source and open Diagnostics to refresh its connection status.
+Accounts with source write access can rename, enable, or disable a source.
+Meshtastic TCP endpoint editing also requires source read access.
+
+To add a MeshCore source, choose Add > MeshCore. For USB / serial, enter
+the COM port shown in Windows Device Manager. For TCP, enter the host
+and port. You can turn off Connect automatically for manual connection.
+
+Choose Add > Meshtastic MQTT bridge to subscribe to MQTT topics, or
+Add > MeshCore MQTT to subscribe to an observer region.
+
+Choose Add and select an embedded MQTT broker to host one locally.
+The default address 127.0.0.1 accepts clients on this PC. Set a
+LAN address if other devices should connect. Set a username and password.
+
+In the Meshtastic MQTT bridge form, expand Bridge forwarding and topic
+filters to choose direction, a local broker, and incoming or outgoing
+topic rules. New bridges start in Receive only mode.
+
+Select a Meshtastic TCP or MeshCore device source and choose Radio configuration.
+Meshtastic includes the owner, device, module, and channel settings. MeshCore
+includes LoRa, power, position, Bluetooth PIN, discovery, and other device settings.
+Which settings can be saved depends on permissions and firmware support.
+
+On Map, pick Topographic for color terrain or Light gray for a neutral basemap.
+Open Legend for marker colors based on when each node was last heard.
+
+Use Find a node on the map to search by name, short name, or ID.
+Choose a result to zoom to the node and show its details.
+
+Select a positioned node, choose a time range, then click Show trail.
+The white dot marks the first fix. The blue dot or ring marks the latest.
+
+Select a Meshtastic direct message and choose Acknowledgments to see
+local transmit and recipient acknowledgments separately.
+
+In Telemetry, select a reading to see its history or add it to that
+source's favorites. Use Favorites only to filter the list. Compare
+favorites overlays the same node and metric from readable sources.
+
+This build shares the previous build's data folder and port. Quit
+the earlier app from its tray menu before starting this build.
+Menu > Quit MeshMonitor shuts down the backend.
+
+To administer a remote Meshtastic radio, sign in as an administrator.
+Select the connected Meshtastic TCP source and the target in Nodes,
+then choose Administer selected radio.
+Reopen the same remote radio and use Recent remote saves to check an earlier submission during this sign-in session.
+Check a recent save to see whether its verification retries can be stopped. Stopping retries leaves any settings already applied on the radio in place.
+Choose Read device information in the remote administration panel to request firmware and capabilities from the selected node.
+For a Meshtastic TCP source, select a node and open Node diagnostics for name history, neighbors, and traceroutes. Use Refresh records after sending a request.
+Select a Meshtastic node on the map for Neighbor links, or choose Show on map in its traceroute history. In Messages, open a channel or direct thread and select a message to React. Mark read clears unread messages for the selected conversation.
+From Telemetry, pin readings or favorite comparisons and use Dashboard to arrange charts and edit history windows, axis bounds, and comparison sources. Map > Layers remembers visibility. Select a map marker and choose Open node details for its source directory and telemetry history.
+Meshtastic position playback: select a positioned node, enable Layers > Position trails, and choose Show trail. Use Play, the speed selector, the slider, or the previous and next fix buttons. The orange ring marks the recorded position.
+For multi-node playback select a Meshtastic TCP node and choose Replay nodes. Use Map > Layers > Import offline tiles for a ZIP containing XYZ PNG or JPEG tiles at z/x/y. Open Packets on a Meshtastic TCP source to filter or pause the log, inspect a record, or open an activity report and select a count.

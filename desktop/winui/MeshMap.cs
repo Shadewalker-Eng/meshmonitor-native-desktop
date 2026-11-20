@@ -10,7 +10,7 @@ using Windows.Foundation;
 
 namespace MeshMonitor.Native;
 
-public sealed class MeshMap : Grid
+public sealed partial class MeshMap : Grid
 {
     private const int MaxZoom = 16;
     private const string TileRoot = "https://server.arcgisonline.com/ArcGIS/rest/services/";
@@ -26,6 +26,19 @@ public sealed class MeshMap : Grid
     ];
     private readonly Canvas tiles = new() { IsHitTestVisible = false };
     private readonly Canvas trail = new() { IsHitTestVisible = false };
+    private readonly Canvas linkCanvas = new() { IsHitTestVisible = false };
+    private MapLink[] links = [];
+    private string linkSource = "";
+    private readonly Dictionary<string, (double X, double Y)> linkLocations = new(StringComparer.OrdinalIgnoreCase);
+    private int playbackIndex = -1;
+    private readonly Canvas playbackLayer = new() { IsHitTestVisible = false };
+    private readonly Border playbackCursor = new()
+    {
+        Width = 24, Height = 24, CornerRadius = new CornerRadius(12),
+        BorderThickness = new Thickness(4), BorderBrush = new SolidColorBrush(Colors.DarkOrange),
+        Child = new Border { CornerRadius = new CornerRadius(9), BorderThickness = new Thickness(2), BorderBrush = White },
+        Visibility = Visibility.Collapsed
+    };
     private readonly Canvas markers = new();
     private readonly RectangleGeometry clip = new();
     private readonly Dictionary<(int Zoom, int X, int Y), FrameworkElement> visibleTiles = [];
@@ -36,6 +49,19 @@ public sealed class MeshMap : Grid
     private int zoom = 2;
     private Point? dragPoint;
     private bool fitPending;
+    private bool fitLinksPending;
+    private bool showNeighbors = true;
+    private bool showRoutes = true;
+
+    internal void SetLayers(bool showMarkers, bool showTrails, bool neighbors, bool routes)
+    {
+        markers.Visibility = showMarkers ? Visibility.Visible : Visibility.Collapsed;
+        playbackLayer.Visibility = showTrails ? Visibility.Visible : Visibility.Collapsed;
+        trail.Visibility = showTrails ? Visibility.Visible : Visibility.Collapsed;
+        showNeighbors = neighbors;
+        showRoutes = routes;
+        Render();
+    }
     private bool grayBasemap;
     private NodeRow? selectedNode;
 
@@ -46,10 +72,15 @@ public sealed class MeshMap : Grid
         (centerX, centerY) = MapProjection.Project(38, -98);
         Children.Add(tiles);
         Children.Add(trail);
+        Children.Add(linkCanvas);
+        Children.Add(annotations);
         Children.Add(markers);
+        playbackLayer.Children.Add(playbackCursor);
+        Children.Add(playbackLayer);
         SizeChanged += (_, _) =>
         {
-            if (fitPending) Fit();
+            if (fitLinksPending) SetLinks(linkSource, links);
+            else if (fitPending) Fit();
             else Render();
         };
         PointerPressed += BeginPan;
@@ -66,6 +97,23 @@ public sealed class MeshMap : Grid
 
     public event Action<NodeRow>? NodeSelected;
     public int PositionedCount => positions.Length;
+
+    private OfflineTilePackage? offlineTiles;
+
+    internal void UseOffline(OfflineTilePackage? package)
+    {
+        if (offlineTiles == package) return;
+        offlineTiles = package;
+        tiles.Children.Clear();
+        visibleTiles.Clear();
+        if (package is not null)
+        {
+            (zoom, centerX, centerY) = package.InitialView;
+            fitPending = false;
+        }
+        else zoom = Math.Clamp(zoom, 1, MaxZoom);
+        Render();
+    }
 
     public void SetGrayBasemap(bool useGray)
     {
@@ -104,6 +152,7 @@ public sealed class MeshMap : Grid
                 var location = MapProjection.Project(node.Latitude!.Value, node.Longitude!.Value);
                 return (node, location.X, location.Y);
             }).ToArray();
+        UpdateLinkLocations();
         if (fit) Fit();
         else Render();
     }
@@ -114,7 +163,7 @@ public sealed class MeshMap : Grid
         if (center && node.Latitude is { } latitude && node.Longitude is { } longitude)
         {
             (centerX, centerY) = MapProjection.Project(latitude, longitude);
-            zoom = Math.Max(zoom, 14);
+            zoom = offlineTiles?.ClosestZoom(14) ?? Math.Max(zoom, 14);
             fitPending = false;
         }
         Render();
@@ -140,6 +189,7 @@ public sealed class MeshMap : Grid
 
     internal void SetTrail(PositionFix[] fixes)
     {
+        playbackIndex = -1;
         trailPoints = new (double X, double Y)[fixes.Length];
         for (int i = 0; i < fixes.Length; i++)
         {
@@ -164,6 +214,7 @@ public sealed class MeshMap : Grid
         while (zoom > 1 && ((maxX - minX) * MapProjection.WorldSize(zoom) > ActualWidth * .8 ||
             (maxY - minY) * MapProjection.WorldSize(zoom) > ActualHeight * .8))
             zoom--;
+        if (offlineTiles is not null) zoom = offlineTiles.ClosestZoom(zoom);
         Render();
     }
 
@@ -171,7 +222,7 @@ public sealed class MeshMap : Grid
 
     private void ZoomAt(int delta, Point pivot)
     {
-        int next = Math.Clamp(zoom + delta, 1, MaxZoom);
+        int next = offlineTiles?.NextZoom(zoom, delta) ?? Math.Clamp(zoom + delta, 1, MaxZoom);
         if (next == zoom) return;
         double x = pivot.X - ActualWidth / 2, y = pivot.Y - ActualHeight / 2;
         double before = MapProjection.WorldSize(zoom), after = MapProjection.WorldSize(next);
@@ -220,7 +271,129 @@ public sealed class MeshMap : Grid
         double top = centerY * world - ActualHeight / 2;
         RenderTiles(left, top);
         RenderTrail(left, top, world);
+        DrawLinks(left, top, world);
+        DrawOverlays(left, top, world);
         RenderMarkers(left, top, world);
+        foreach (var marker in groupMarkers) PlaceGroupMarker(marker.Dot, marker.Fix);
+        PlacePlaybackCursor();
+    }
+
+    private readonly List<(Border Dot, PositionFix? Fix)> groupMarkers = [];
+
+    internal void ClearGroupReplay()
+    {
+        foreach (var marker in groupMarkers) playbackLayer.Children.Remove(marker.Dot);
+        groupMarkers.Clear();
+    }
+
+    internal void StartGroupReplay(IEnumerable<PositionFix> fixes, int count)
+    {
+        ClearGroupReplay();
+        var points = fixes.Select(fix => MapProjection.Project(fix.Latitude, fix.Longitude)).ToArray();
+        if (points.Length > 0)
+        {
+            var xs = points.Select(point => MapProjection.NearestWorld(point.X, points[0].X)).ToArray();
+            FitBounds(xs.Min(), xs.Max(), points.Min(p => p.Y), points.Max(p => p.Y), 14);
+        }
+        for (int i = 0; i < count; i++)
+        {
+            var dot = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(5,1,5,1),
+                BorderThickness = new Thickness(2), BorderBrush = White, Background = MarkerStyles[i % 5].Color,
+                Visibility = Visibility.Collapsed, Child = new TextBlock { Text = (i + 1).ToString(), Foreground = White } };
+            playbackLayer.Children.Add(dot);
+            groupMarkers.Add((dot, null));
+        }
+    }
+
+    internal void SetGroupFix(int index, PositionFix? fix)
+    {
+        var marker = groupMarkers[index];
+        if (marker.Fix == fix) return;
+        groupMarkers[index] = (marker.Dot, fix);
+        PlaceGroupMarker(marker.Dot, fix);
+    }
+
+    private void PlaceGroupMarker(Border dot, PositionFix? fix)
+    {
+        dot.Visibility = fix is null ? Visibility.Collapsed : Visibility.Visible;
+        if (fix is null) return;
+        var point = MapProjection.Project(fix.Latitude, fix.Longitude);
+        double world = MapProjection.WorldSize(zoom);
+        Canvas.SetLeft(dot, (MapProjection.NearestWorld(point.X, centerX) - centerX) * world + ActualWidth / 2 - 10);
+        Canvas.SetTop(dot, (point.Y - centerY) * world + ActualHeight / 2 - 12);
+    }
+
+    internal void SetPlaybackFix(int index)
+    {
+        playbackIndex = index;
+        PlacePlaybackCursor();
+    }
+
+    private void PlacePlaybackCursor()
+    {
+        bool visible = playbackIndex >= 0 && playbackIndex < trailPoints.Length;
+        playbackCursor.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+        var point = trailPoints[playbackIndex];
+        double world = MapProjection.WorldSize(zoom);
+        double x = (MapProjection.NearestWorld(point.X, centerX) - centerX) * world + ActualWidth / 2;
+        double y = (point.Y - centerY) * world + ActualHeight / 2;
+        Canvas.SetLeft(playbackCursor, x - playbackCursor.Width / 2);
+        Canvas.SetTop(playbackCursor, y - playbackCursor.Height / 2);
+    }
+
+    private void UpdateLinkLocations()
+    {
+        linkLocations.Clear();
+        foreach (var item in positions)
+        {
+            if (item.Node.SourceId != linkSource) continue;
+            string id = uint.TryParse(item.Node.Id, out uint number) ? $"!{number:x8}" : item.Node.Id;
+            linkLocations[id] = (item.X, item.Y);
+        }
+    }
+
+    internal int SetLinks(string source, MapLink[] selected)
+    {
+        links = selected;
+        linkSource = source;
+        UpdateLinkLocations();
+        var mapped = links.Where(link => linkLocations.ContainsKey(link.From) && linkLocations.ContainsKey(link.To)).ToArray();
+        fitLinksPending = mapped.Length > 0 && (ActualWidth <= 10 || ActualHeight <= 10);
+        if (mapped.Length > 0 && !fitLinksPending)
+        {
+            var points = mapped.SelectMany(link => new[] { linkLocations[link.From], linkLocations[link.To] }).ToArray();
+            var xs = points.Select(point => MapProjection.NearestWorld(point.X, points[0].X)).ToArray();
+            FitBounds(xs.Min(), xs.Max(), points.Min(p => p.Y), points.Max(p => p.Y), 14);
+        }
+        else Render();
+        return mapped.Length;
+    }
+
+    private void DrawLinks(double left, double top, double world)
+    {
+        linkCanvas.Children.Clear();
+        foreach (var link in links)
+        {
+            if (link.Traceroute ? !showRoutes : !showNeighbors) continue;
+            if (!linkLocations.TryGetValue(link.From, out var a) || !linkLocations.TryGetValue(link.To, out var b)) continue;
+            double ax = MapProjection.NearestWorld(a.X, centerX);
+            double bx = MapProjection.NearestWorld(b.X, ax);
+            double x = ax * world - left, y = a.Y * world - top;
+            double dx = (bx - ax) * world, dy = (b.Y - a.Y) * world;
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (length < 1) continue;
+            double ux = dx / length, uy = dy / length;
+            x -= uy * 3;
+            y += ux * 3;
+            var brush = !link.Traceroute ? new SolidColorBrush(Colors.Teal) : link.Return ? new SolidColorBrush(Colors.DarkMagenta) : TrailBlue;
+            linkCanvas.Children.Add(new Line { X1 = x, Y1 = y, X2 = x + dx, Y2 = y + dy,
+                Stroke = brush, StrokeThickness = 3 });
+            var tip = new Point(x + dx * .6, y + dy * .6);
+            linkCanvas.Children.Add(new Polygon { Fill = brush, Points = new PointCollection {
+                tip, new(tip.X - ux * 11 - uy * 5, tip.Y - uy * 11 + ux * 5),
+                new(tip.X - ux * 11 + uy * 5, tip.Y - uy * 11 - ux * 5) } });
+        }
     }
 
     private void RenderTrail(double left, double top, double world)
@@ -293,9 +466,16 @@ public sealed class MeshMap : Grid
                 int column = MapProjection.WrapTile(x, count);
                 tile = new Grid { Width = size, Height = size };
                 var layers = ((Grid)tile).Children;
-                layers.Add(TileImage(grayBasemap ? "Canvas/World_Light_Gray_Base" : "World_Topo_Map", zoom, y, column));
-                if (grayBasemap)
-                    layers.Add(TileImage("Canvas/World_Light_Gray_Reference", zoom, y, column));
+                if (offlineTiles is not null)
+                {
+                    if (offlineTiles.Image(zoom, column, y) is { } local) layers.Add(local);
+                }
+                else
+                {
+                    layers.Add(TileImage(grayBasemap ? "Canvas/World_Light_Gray_Base" : "World_Topo_Map", zoom, y, column));
+                    if (grayBasemap)
+                        layers.Add(TileImage("Canvas/World_Light_Gray_Reference", zoom, y, column));
+                }
                 visibleTiles.Add(key, tile);
                 tiles.Children.Add(tile);
             }
@@ -346,8 +526,9 @@ public sealed class MeshMap : Grid
                 BorderThickness = new Thickness(selected ? 3 : 1), CornerRadius = new CornerRadius(7),
                 DataContext = first.Node
             };
+            bool canZoom = (offlineTiles?.NextZoom(zoom, 1) ?? Math.Min(zoom + 1, MaxZoom)) > zoom;
             string tooltip = count == 1 ? $"{first.Node.Name} · {status}" :
-                zoom < MaxZoom ? $"{count} nodes. Zoom in to inspect." : $"Select from {count} nodes.";
+                canZoom ? $"{count} nodes. Zoom in to inspect." : $"Select from {count} nodes.";
             if (selected && count > 1) tooltip = $"{first.Node.Name} selected · {tooltip}";
             AutomationProperties.SetName(button, tooltip);
             if (selected) AutomationProperties.SetItemStatus(button, "Selected");
@@ -355,7 +536,7 @@ public sealed class MeshMap : Grid
             button.Click += (_, _) =>
             {
                 if (count == 1) NodeSelected?.Invoke(first.Node);
-                else if (zoom < MaxZoom) ZoomAt(2, new Point(first.X, first.Y));
+                else if (canZoom) ZoomAt(2, new Point(first.X, first.Y));
                 else
                 {
                     var choices = new MenuFlyout();

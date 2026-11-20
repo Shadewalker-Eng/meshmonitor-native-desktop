@@ -9,7 +9,9 @@ public sealed partial class MainWindow
 {
     private JsonElement radioPermissions;
     private bool radioAdmin;
-    private sealed record RemoteSave(string SourceId, string NodeId, string Label, JsonElement Receipt);
+    private sealed record RemoteSave(string SourceId, string NodeId, string Label, JsonElement Receipt, RadioSection Section, Dictionary<string, byte[]> Digests);
+    private static byte[] RadioDigest(object? value) =>
+        System.Security.Cryptography.SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value));
     private List<RemoteSave> recentRemoteSaves = new();
 
     private bool HasRadioGrant(SourceRow source, string action) =>
@@ -70,11 +72,34 @@ public sealed partial class MainWindow
         var history = new ComboBox { Header = "Recent remote saves" };
         var historyResult = Wrapped("");
         var checkStatus = new Button { Content = "Check save status" };
+        var stopRetries = new Button { Content = "Stop verification retries", Visibility = Visibility.Collapsed };
         var historyPanel = new StackPanel { Spacing = 6 };
         if (target is not null)
         {
             historyPanel.Children.Add(history);
             historyPanel.Children.Add(checkStatus);
+            var compare = new Button { Content = "Read back edited fields" };
+            historyPanel.Children.Add(compare);
+            compare.Click += async (_, _) =>
+            {
+                if (history.SelectedItem is not ComboBoxItem { Tag: RemoteSave entry } choice) return;
+                compare.IsEnabled = false;
+                historyResult.Text = "Requesting saved section from " + entry.NodeId;
+                try
+                {
+                    var reply = await client.ReadRemoteRadio(source, entry.NodeId, entry.Section);
+                    var settings = entry.Section.Settings(reply);
+                    if (settings.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Section missing from readback.");
+                    var mismatches = entry.Section.Fields.Where(field => entry.Digests.TryGetValue(field.Key, out var digest)
+                        && !RadioDigest(RadioSection.Read(settings, field)).SequenceEqual(digest)).Select(field => field.Label).ToArray();
+                    if (showing && !closed && ReferenceEquals(history.SelectedItem, choice))
+                        historyResult.Text = mismatches.Length == 0 ? "Readback matches the edited fields." :
+                            "Readback differs or is unavailable for " + string.Join(", ", mismatches);
+                }
+                catch (Exception ex) { if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = ex.Message; }
+                finally { if (showing && !closed) compare.IsEnabled = true; }
+            };
+            historyPanel.Children.Add(stopRetries);
             historyPanel.Children.Add(historyResult);
             content.Children.Insert(2, historyPanel);
             UpdateHistory();
@@ -87,17 +112,41 @@ public sealed partial class MainWindow
             history.ItemsSource = matches.Select(item => new ComboBoxItem { Content = item.Label, Tag = item }).ToArray();
             history.SelectedIndex = matches.Length == 0 ? -1 : 0;
         }
-        history.SelectionChanged += (_, _) => historyResult.Text = "";
+        history.SelectionChanged += (_, _) =>
+        {
+            historyResult.Text = "";
+            stopRetries.Visibility = Visibility.Collapsed;
+        };
         checkStatus.Click += async (_, _) =>
         {
             if (history.SelectedItem is not ComboBoxItem { Tag: RemoteSave selected } choice) return;
             checkStatus.IsEnabled = false;
+            stopRetries.Visibility = Visibility.Collapsed;
             try
             {
-                await client.TrackRemoteRadioSave(selected.Receipt, message =>
+                bool canStop = await client.TrackRemoteRadioSave(selected.Receipt, message =>
                 {
                     if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = message;
                 }, trackingToken, follow: false);
+                if (canStop && showing && !closed && ReferenceEquals(history.SelectedItem, choice))
+                    stopRetries.Visibility = Visibility.Visible;
+            }
+            catch (Exception error)
+            {
+                if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = error.Message;
+            }
+            finally { if (showing && !closed) checkStatus.IsEnabled = true; }
+        };
+        stopRetries.Click += async (_, _) =>
+        {
+            if (history.SelectedItem is not ComboBoxItem { Tag: RemoteSave selected } choice ||
+                selected.Receipt.String("verifyJobId") is not string id) return;
+            stopRetries.Visibility = Visibility.Collapsed;
+            checkStatus.IsEnabled = false;
+            try
+            {
+                var result = await client.StopRemoteVerification(id);
+                if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = result;
             }
             catch (Exception error)
             {
@@ -107,6 +156,28 @@ public sealed partial class MainWindow
         };
         bool working = false;
         bool online = false;
+        var readMetadata = new Button { Content = "Read device information" };
+        if (target is not null)
+        {
+            var result = Wrapped("");
+            var deviceInfo = new StackPanel { Spacing = 4 };
+            deviceInfo.Children.Add(readMetadata);
+            deviceInfo.Children.Add(result);
+            content.Children.Insert(2, deviceInfo);
+            readMetadata.Click += async (_, _) =>
+            {
+                if (working) return;
+                SetWorking(true);
+                result.Text = $"Requesting device information from {target.Id}…";
+                try
+                {
+                    var info = await client.ReadRemoteDeviceMetadata(source, target.Id);
+                    if (showing && !closed) result.Text = DescribeRemoteDevice(info);
+                }
+                catch (Exception error) { if (showing && !closed) result.Text = error.Message; }
+                finally { if (showing && !closed) SetWorking(false); }
+            };
+        }
         RadioSection Section() => sections[Math.Max(0, selector.SelectedIndex)];
         Task<JsonElement> Read(RadioSection section) => target is not null
             ? client.ReadRemoteRadio(source, target.Id, section)
@@ -176,6 +247,7 @@ public sealed partial class MainWindow
         void SetWorking(bool value)
         {
             working = value;
+            readMetadata.IsEnabled = !value;
             selector.IsEnabled = refresh.IsEnabled = !value;
             foreach (var (field, input) in inputs) input.IsEnabled = !value && EditableField(Section(), field);
             save.IsEnabled = !value && Editable(Section()) && Section().CanSave(snapshot);
@@ -304,7 +376,9 @@ public sealed partial class MainWindow
                 {
                     var operation = await client.StartRemoteRadioSave(source, target.Id, section, payload);
                     sent = true;
-                    sessionSaves.Insert(0, new(source.Id, target.Id, $"{section.Label} · {DateTime.Now:G}", operation));
+                    sessionSaves.Insert(0, new(source.Id, target.Id, $"{section.Label} · {DateTime.Now:G}", operation, section,
+                        section.Fields.Where(field => changes.ContainsKey(field.Key)).ToDictionary(field => field.Key,
+                            field => RadioDigest(RadioSection.ReadValue(JsonSerializer.SerializeToElement(changes[field.Key]), field)))));
                     if (sessionSaves.Count > 100) sessionSaves.RemoveAt(sessionSaves.Count - 1);
                     if (!showing || closed) return;
                     UpdateHistory();
@@ -340,6 +414,25 @@ public sealed partial class MainWindow
                     {
                         await SetModuleResult(message);
                     }
+                    return;
+                }
+                if (!meshCore && radioAdmin && section.RequestType is >= 0 and <= 7 && showing && !closed)
+                {
+                    string? id = RadioSection.NodeId(current);
+                    var reply = await client.RequestAsync("api/config/local-device-readback",
+                        new { sourceId=source.Id, nodeId=id, configType=section.RequestType });
+                    var live = reply.Property("section");
+                    if (live.ValueKind != JsonValueKind.Object || reply.String("nodeId") != id)
+                        throw new InvalidOperationException("No matching radio reply.");
+                    var differencesLive = section.Fields.Where(field => changes.TryGetValue(field.Key, out var expected) &&
+                        !Equals(RadioSection.ReadValue(JsonSerializer.SerializeToElement(expected), field),
+                            RadioSection.Read(live, field))).Select(field => field.Label).ToArray();
+                    if (!showing || closed) return;
+                    snapshot = await Read(section);
+                    if (!showing || closed) return;
+                    Display();
+                    status.Text = differencesLive.Length == 0 ? "The local radio returned the edited values." :
+                        "The local radio reported different values for " + string.Join(", ", differencesLive);
                     return;
                 }
                 if (section.RequestType is int configType && showing && !closed)
@@ -393,6 +486,21 @@ public sealed partial class MainWindow
         _ = Load();
         try { await opened; }
         finally { showing = false; stopWatching.Cancel(); }
+    }
+
+    private static string DescribeRemoteDevice(JsonElement info)
+    {
+        string Value(string key) => info.String(key) ?? info.Number(key)?.ToString(CultureInfo.InvariantCulture) ?? "Unknown";
+        var lines = new List<string> { $"Firmware: {Value("firmwareVersion")}", $"Hardware model: {Value("hwModel")}",
+            $"Role: {Value("role")}" };
+        foreach (var (key, label) in new[] { ("hasWifi", "Wi-Fi"), ("hasBluetooth", "Bluetooth"),
+            ("hasEthernet", "Ethernet"), ("hasRemoteHardware", "Remote hardware"),
+            ("hasXeddsa", "Packet signature verification"), ("canShutdown", "Radio shutdown") })
+        {
+            string availability = info.Flag(key) switch { true => "Supported", false => "Not reported as supported", null => "Unknown" };
+            lines.Add($"{label}: {availability}");
+        }
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static bool TryParseRadioValue(RadioField field, string text, out object value)

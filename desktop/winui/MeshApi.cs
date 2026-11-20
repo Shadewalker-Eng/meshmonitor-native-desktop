@@ -169,6 +169,7 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
         string path = source.IsUnified ? "api/unified/dashboard" : SourcePath(source, "dashboard");
         return (await DashboardNodes(path + "?ageWindow=settings", source.IsUnified))
             .Where(node => node.Latitude is >= -90 and <= 90 && node.Longitude is >= -180 and <= 180)
+            .Select(node => node.SourceId.Length == 0 && !source.IsUnified ? node with { SourceId = source.Id } : node)
             .ToArray();
     }
 
@@ -228,10 +229,21 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
 
     internal async Task<TelemetryPoint[]> TelemetryHistory(TelemetryRow reading, int hours)
     {
-        string node = Uri.EscapeDataString(reading.NodeId);
-        string source = Uri.EscapeDataString(reading.SourceId);
-        var rows = await RequestAsync($"api/telemetry/{node}?sourceId={source}&hours={hours}");
-        return TelemetryComparison.ParsePoints(Rows(rows).Where(row => row.String("telemetryType") == reading.Type));
+        var rows = await NodeTelemetryRows(reading.SourceId, reading.NodeId, hours);
+        return TelemetryComparison.ParsePoints(Rows(rows).Where(row => row.String("telemetryType") == reading.Type &&
+            (row.String("unit") is not { Length: > 0 } unit || unit == reading.Unit)));
+    }
+
+    private Task<JsonElement> NodeTelemetryRows(string source, string node, int hours) =>
+        RequestAsync($"api/telemetry/{Uri.EscapeDataString(node)}?sourceId={Uri.EscapeDataString(source)}&hours={hours}");
+
+    internal async Task<TelemetryRow[]> NodeMetrics(string source, NodeRow node)
+    {
+        var rows = await NodeTelemetryRows(source, node.Id, 168);
+        return Rows(rows).Select(TelemetryRow.From).Where(row => row.Type.Length > 0)
+            .GroupBy(row => (row.Type, row.Unit)).Select(group => group.First() with
+                { SourceId = source, NodeId = node.Id, Node = node.Name, Reading = group.Key.Type, Context = "" })
+            .OrderBy(row => row.Type).ToArray();
     }
 
     internal async Task SetTelemetryFavorite(TelemetryRow reading, bool enabled)
@@ -281,6 +293,13 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
         return body;
     }
 
+    internal Task<JsonElement> SendReaction(SourceRow source, Conversation thread, uint packet, string emoji)
+    {
+        var body = MeshtasticSendBody(source, emoji, thread.Channel ?? 0, thread.Peer, packet);
+        body["emoji"] = 1;
+        return RequestAsync("api/messages/send", body);
+    }
+
     internal async Task<Conversation[]> Channels(SourceRow source)
     {
         var result = await RequestAsync(SourcePath(source, "channels"));
@@ -301,8 +320,29 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
             .Select(key => Conversation.ForPeer(key)).ToArray();
     }
 
-    internal async Task<JsonElement> ChannelUnread(SourceRow source) =>
-        (await RequestAsync($"api/messages/unread-counts?sourceId={Uri.EscapeDataString(source.Id)}")).Property("channels");
+    internal Task<JsonElement> UnreadCounts(SourceRow source) =>
+        RequestAsync($"api/messages/unread-counts?sourceId={Uri.EscapeDataString(source.Id)}");
+
+    internal async Task MarkDirectRead(SourceRow source, Conversation conversation, string local)
+    {
+        // The bundled peer-wide mark operation omits sourceId in its database query.
+        // Use only IDs returned by the source-scoped direct conversation.
+        string path = MessagePath(source, conversation, local).Replace("limit=100", "limit=500");
+        for (int offset = 0; offset <= 50000; offset += 500)
+        {
+            var page = await RequestAsync($"{path}&offset={offset}");
+            var ids = Rows(page.Property("messages")).Where(row =>
+                string.Equals(row.String("fromNodeId"), conversation.Peer, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(row.String("toNodeId"), local, StringComparison.OrdinalIgnoreCase))
+                .Select(row => row.String("id")).OfType<string>().Where(id => id.Length > 0).Distinct().ToArray();
+            if (ids.Length > 0)
+                await RequestAsync("api/messages/mark-read", new { sourceId = source.Id, messageIds = ids });
+            if (page.Flag("hasMore") != true) return;
+            var remaining = (await UnreadCounts(source)).Property("directMessages");
+            if (remaining.ValueKind == JsonValueKind.Object && remaining.Number(conversation.Peer!) is null or 0) return;
+        }
+        throw new InvalidOperationException("Reached the backend history limit. Older messages may still be unread.");
+    }
 
     internal Task<JsonElement> MarkChannelRead(SourceRow source, int channel) =>
         RequestAsync("api/messages/mark-read", new { sourceId = source.Id, channelId = channel });
@@ -336,6 +376,8 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
         var messages = rows
             .Where(message => !string.IsNullOrWhiteSpace(message.Text))
             .OrderByDescending(message => message.Timestamp).ToArray();
+        bool meshtastic = source.Type == "meshtastic_tcp";
+        if (meshtastic) messages = MessageReactions.Attach(messages);
         var quoted = messages.Where(message => message.PacketId is not null)
             .ToLookup(message => (message.PacketId!.Value, message.Channel, Conversation.DirectPair(message)));
         return messages.Select(message =>
@@ -369,7 +411,7 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
         return "api/messages" + scope;
     }
 
-    private async Task<JsonElement> RequestAsync(string path, object? body = null, HttpMethod? method = null,
+    internal async Task<JsonElement> RequestAsync(string path, object? body = null, HttpMethod? method = null,
         TimeSpan? timeout = null)
     {
         using var request = new HttpRequestMessage(method ?? (body is null ? HttpMethod.Get : HttpMethod.Post), path);
@@ -482,6 +524,9 @@ public sealed record MessageRow(string Sender, string Text, DateTimeOffset? Time
     public int? Channel { get; init; }
     public uint? PacketId { get; init; }
     public uint? ReplyId { get; init; }
+    public string Reactions { get; init; } = "";
+    public Microsoft.UI.Xaml.Visibility ReactionVisibility => Reactions.Length == 0 ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+    internal bool EmojiFlag { get; init; }
     public string ReplyPreview { get; init; } = "";
     public string Summary => $"{Sender} · {ValueFormat.Time(Timestamp)}";
 
@@ -497,6 +542,7 @@ public sealed record MessageRow(string Sender, string Text, DateTimeOffset? Time
         PacketId = row.UInt32("packetId") is uint packet && packet > 0
             ? packet : Conversation.PacketFromStoredId(row.String("id")),
         ReplyId = row.UInt32("replyId") is uint reply && reply > 0 ? reply : null,
+        EmojiFlag = row.Number("emoji") == 1 || row.Flag("emoji") == true,
         DeliveryState = row.String("deliveryState"),
         ProtocolDeliveryStatus = row.String("deliveryStatus"),
         RoutingFailed = row.Flag("ackFailed") == true || row.Flag("routingErrorReceived") == true,

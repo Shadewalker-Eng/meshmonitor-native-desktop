@@ -33,10 +33,14 @@ public sealed partial class MainWindow : Window
         timer = DispatcherQueue.CreateTimer();
         timer.Interval = TimeSpan.FromSeconds(15);
         timer.Tick += OnTick;
+        playbackTimer = DispatcherQueue.CreateTimer();
+        playbackTimer.Interval = TimeSpan.FromMilliseconds(125);
+        playbackTimer.Tick += (_, _) => AdvancePlayback();
         AppWindow.Closing += (_, args) =>
         {
             if (quitting || tray is null) return;
             args.Cancel = true;
+            PausePlayback();
             AppWindow.Hide();
         };
         Closed += OnClosed;
@@ -161,6 +165,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowAccess()
     {
+        WorkflowTools.Visibility = Visibility.Collapsed;
         signedIn = false;
         canReadSourceSettings = canWriteSources = false;
         radioPermissions = default;
@@ -190,6 +195,8 @@ public sealed partial class MainWindow : Window
         if (closed) return;
         signedIn = status.Flag("authenticated") == true;
         bool isAdmin = signedIn && status.Property("user").Flag("isAdmin") == true;
+        string profile = signedIn ? "user-" + status.Property("user").Property("id").ToString() : "guest";
+        LoadDesktopPreferences(Path.Combine(backend!.DataDirectory, $"desktop-{profile}.json"));
         radioAdmin = isAdmin;
         radioPermissions = status.Property("permissions").Property("bySource");
         var grants = status.Property("permissions").Property("global").Property("sources");
@@ -293,6 +300,7 @@ public sealed partial class MainWindow : Window
     private async void OnTick(DispatcherQueueTimer sender, object args)
     {
         var tab = Activity.SelectedItem as PivotItem;
+        if (tab == PacketsTab && (packetsPaused || PacketSender.FocusState != FocusState.Unfocused || PacketPort.FocusState != FocusState.Unfocused || PacketWindow.IsDropDownOpen)) return;
         if (ConversationPicker.IsDropDownOpen || (showingOlder && tab == MessagesTab) ||
             (tab == MapTab && MapSearch.Text.Length > 0 &&
                 (MapSearch.IsSuggestionListOpen || MapSearchHasFocus()))) return;
@@ -327,7 +335,9 @@ public sealed partial class MainWindow : Window
 
     private async void OnTabChanged(object sender, SelectionChangedEventArgs args)
     {
-        if (busy || Workspace.Visibility != Visibility.Visible || !args.AddedItems.OfType<PivotItem>().Any()) return;
+        if (args.AddedItems.OfType<PivotItem>().FirstOrDefault() is not { } tab) return;
+        if (tab != MapTab) PausePlayback();
+        if (busy || Workspace.Visibility != Visibility.Visible) return;
         await RunAsync(_ => LoadSourceAsync());
     }
 
@@ -346,7 +356,9 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        WorkflowTools.Visibility = Visibility.Visible;
         SourceName.Text = source.Name;
+        NodeDiagnostics.Visibility = source.Type == "meshtastic_tcp" ? Visibility.Visible : Visibility.Collapsed;
         EditSource.Visibility = !source.IsUnified && canWriteSources ? Visibility.Visible : Visibility.Collapsed;
         ConnectionDiagnostics.Visibility = source.IsUnified ? Visibility.Collapsed : Visibility.Visible;
         RadioSettings.Visibility = source.Type is "meshtastic_tcp" or "meshcore" && HasRadioGrant(source, "read")
@@ -380,6 +392,8 @@ public sealed partial class MainWindow : Window
         {
             await LoadTelemetryAsync(source);
         }
+        else if (selectedTab == PacketsTab) await LoadPacketsAsync(api!, source);
+        else if (selectedTab == DashboardTab) await LoadDashboardAsync(api!, source);
         else if (selectedTab == NodesTab)
         {
             nodes = await api!.Nodes(source);
@@ -394,7 +408,15 @@ public sealed partial class MainWindow : Window
             {
                 selectedMapNode = positioned.FirstOrDefault(node => node.Id == previous.Id &&
                     node.SourceId == previous.SourceId);
-                if (selectedMapNode is null) ClearPositionTrail();
+                if (selectedMapNode is null)
+                {
+                    ClearPositionTrail();
+                    if (showingNeighbors)
+                    {
+                        neighborReports = [];
+                        UpdateLinks(source);
+                    }
+                }
             }
             bool autoFit = fitMap && positioned.Length > 0;
             NodeMap.SetNodes(positioned, autoFit, selectedMapNode);
@@ -409,6 +431,8 @@ public sealed partial class MainWindow : Window
         MapSummary.Text = selectedMapNode is { } node
             ? DescribeNode(node, MapSourceName(node))
             : NodeMap.PositionedCount == 0 ? "No positioned nodes." : $"{NodeMap.PositionedCount} positioned nodes";
+        MultiReplay.Visibility = selectedMapNode is { } marker && FindMapSource(marker)?.Type == "meshtastic_tcp" ? Visibility.Visible : Visibility.Collapsed;
+        NeighborLinks.Visibility = selectedMapNode is { } n && FindMapSource(n)?.Type == "meshtastic_tcp" ? Visibility.Visible : Visibility.Collapsed;
         PositionHistoryActions.Visibility = selectedMapNode is { } selected && FindMapSource(selected) is not null
             ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -420,6 +444,21 @@ public sealed partial class MainWindow : Window
     private void OnBasemapChanged(object sender, SelectionChangedEventArgs args)
     {
         if (MapAttribution is null) return;
+        if (restoringTiles) return;
+        bool offline = BasemapStyle.SelectedIndex == 2 && importedTiles is not null;
+        if (preferenceFile.Length > 0 && desktop.Offline != offline)
+        {
+            try { SaveDesktop(desktop with { Offline = offline }); }
+            catch (IOException ex) { ShowNotice(ex.Message, InfoBarSeverity.Warning); }
+        }
+        ApplyBasemap(offline);
+    }
+
+    private void ApplyBasemap(bool offline)
+    {
+        NodeMap.UseOffline(offline ? importedTiles : null);
+        MapAttribution.Visibility = offline ? Visibility.Collapsed : Visibility.Visible;
+        if (offline) return;
         bool gray = BasemapStyle.SelectedIndex == 1;
         NodeMap.SetGrayBasemap(gray);
         MapAttribution.Content = gray ? "Esri, DeLorme, NAVTEQ" : "Esri and contributors";
@@ -461,7 +500,7 @@ public sealed partial class MainWindow : Window
     {
         string query = Search.Text.Trim();
         var selection = NodesList.SelectedItem as NodeRow;
-        var visible = nodes.Where(node => MatchesNode(node, query)).ToArray();
+        var visible = nodes.Where(node => MatchesNode(node, query) && NodeFilterMatches(node)).ToArray();
         NodesList.ItemsSource = visible;
         NodesList.SelectedItem = selection is null ? null : visible.FirstOrDefault(node =>
             node.Id == selection.Id && node.SourceId == selection.SourceId);
@@ -471,6 +510,12 @@ public sealed partial class MainWindow : Window
 
     private void OnNodeChanged(object sender, SelectionChangedEventArgs args)
     {
+        if (NodeDiagnostics is not null) NodeDiagnostics.IsEnabled = NodesList.SelectedItem is NodeRow;
+        if (NodeTelemetry is not null) NodeTelemetry.IsEnabled = NodesList.SelectedItem is NodeRow;
+        if (AdministerNode is not null)
+            AdministerNode.IsEnabled = radioAdmin && connected && SourcesList.SelectedItem is SourceRow { Type: "meshtastic_tcp" }
+                && NodesList.SelectedItem is NodeRow remote && MeshApi.TryRemoteNodeNumber(remote.Id, out _)
+                && !string.Equals(remote.Id, localMessageNode, StringComparison.OrdinalIgnoreCase);
         if (NodesList.SelectedItem is NodeRow node)
             NodeDetails.Text = DescribeNode(node);
     }
@@ -490,6 +535,7 @@ public sealed partial class MainWindow : Window
 
     private void ClearActivity()
     {
+        NodeMap.ClearOverlays();
         nodes = [];
         NodesList.ItemsSource = null;
         MessagesList.ItemsSource = null;
@@ -497,8 +543,11 @@ public sealed partial class MainWindow : Window
         NodeDetails.Text = "";
         MessageStatus.Text = "";
         TelemetryStatus.Text = "";
+        ResetPackets();
+        DashboardCards.Children.Clear();
         telemetryRows = [];
         TelemetryList.ItemsSource = null;
+        HideMapLinks();
         NodeMap.SetNodes([], fit: false);
         ClearPositionTrail();
         PositionHistoryActions.Visibility = Visibility.Collapsed;
@@ -590,6 +639,8 @@ public sealed partial class MainWindow : Window
     private void OnClosed(object sender, WindowEventArgs args)
     {
         closed = true;
+        importedTiles?.Dispose();
+        playbackTimer.Stop();
         timer.Stop();
         lifetime.Cancel();
         StopBackend();

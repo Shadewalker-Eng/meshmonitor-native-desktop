@@ -8,6 +8,31 @@ namespace MeshMonitor.Native;
 public sealed partial class MainWindow
 {
     private bool trailShown;
+    private NodeRecord[] neighborReports = [];
+    private NodeRecord[] tracerouteReports = [];
+    private string overlaySource = "";
+    private bool showingNeighbors => neighborReports.Length > 0;
+
+    private void ApplyLayerSettings()
+    {
+        MarkersLayer.IsChecked = desktop.Markers;
+        TrailsLayer.IsChecked = desktop.Trails;
+        NeighborsLayer.IsChecked = desktop.Neighbors;
+        RoutesLayer.IsChecked = desktop.Routes;
+        UpdatePlaybackVisibility();
+        NodeMap.SetLayers(desktop.Markers, desktop.Trails, desktop.Neighbors, desktop.Routes);
+    }
+
+    private void OnLayerChanged(object sender, RoutedEventArgs args)
+    {
+        try
+        {
+            SaveDesktop(desktop with { Markers = MarkersLayer.IsChecked == true, Trails = TrailsLayer.IsChecked == true,
+                Neighbors = NeighborsLayer.IsChecked == true, Routes = RoutesLayer.IsChecked == true });
+        }
+        catch (Exception ex) { ShowNotice(ex.Message, InfoBarSeverity.Error); }
+        ApplyLayerSettings();
+    }
 
     private bool MapSearchHasFocus()
     {
@@ -116,11 +141,82 @@ public sealed partial class MainWindow
     private void SelectMapNode(NodeRow node, bool center)
     {
         if (selectedMapNode?.Id != node.Id || selectedMapNode.SourceId != node.SourceId)
+        {
             ClearPositionTrail();
+            if (overlaySource != node.SourceId) HideMapLinks();
+            else if (showingNeighbors && FindMapSource(node) is { } source)
+            {
+                neighborReports = [];
+                UpdateLinks(source);
+            }
+        }
         selectedMapNode = node;
         NodeMap.SelectNode(node, center);
         UpdateMapSummary();
     }
+
+    private void HideMapLinks()
+    {
+        neighborReports = tracerouteReports = [];
+        overlaySource = "";
+        NodeMap.SetLinks("", []);
+        LinkDetails.Text = "";
+        LinkPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnHideLinks(object sender, RoutedEventArgs args) => HideMapLinks();
+
+    private async void OnNeighborLinks(object sender, RoutedEventArgs args) => await RunAsync(async client =>
+    {
+        if (selectedMapNode is not { } node || FindMapSource(node) is not { Type: "meshtastic_tcp" } source ||
+            (!MeshApi.TryRemoteNodeNumber(node.Id, out uint number) &&
+             (!uint.TryParse(node.Id, out number) || number is 0 or uint.MaxValue))) return;
+        if (showingNeighbors) { neighborReports = []; UpdateLinks(source); return; }
+        var reports = await client.NodeRecords(source, number, NodeReport.Neighbors);
+        if (!closed)
+        {
+            if (overlaySource != source.Id) HideMapLinks();
+            neighborReports = reports;
+            UpdateLinks(source);
+            if (reports.Length == 0) ShowNotice("No neighbor reports for this node.", InfoBarSeverity.Informational);
+        }
+    });
+
+    private void UpdateLinks(SourceRow source)
+    {
+        overlaySource = source.Id;
+        var links = neighborReports.Concat(tracerouteReports).SelectMany(record => record.Links).ToArray();
+        int shown = NodeMap.SetLinks(source.Id, links);
+        var descriptions = new List<string> { $"{shown} of {links.Length} directed links positioned" };
+        if (neighborReports.Length > 0) descriptions.Add("Neighbor reports · Teal");
+        descriptions.AddRange(neighborReports.Select(record => record.Description));
+        if (tracerouteReports.Length > 0) descriptions.Add("Traceroute · Blue forward · Purple return");
+        descriptions.AddRange(tracerouteReports.Select(record => record.Description));
+        LinkDetails.Text = string.Join("\n", descriptions);
+        LinkPanel.Visibility = neighborReports.Length + tracerouteReports.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnOpenMapDetails(object sender, RoutedEventArgs args) => await RunAsync(async client =>
+    {
+        if (selectedMapNode is not { } marker || FindMapSource(marker) is not { } source) return;
+        if ((SourcesList.SelectedItem as SourceRow)?.Id != source.Id)
+        {
+            ClearActivity();
+            SourcesList.SelectedItem = source;
+        }
+        Search.Text = "";
+        Activity.SelectedItem = NodesTab;
+        await LoadSourceAsync();
+        if (closed) return;
+        var target = nodes.FirstOrDefault(item => string.Equals(item.Id, marker.Id, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            ShowNotice("This node is no longer in the source directory.", InfoBarSeverity.Informational);
+            return;
+        }
+        NodesList.SelectedItem = target;
+        NodesList.ScrollIntoView(target);
+    });
 
     private void OnPositionRangeChanged(object sender, SelectionChangedEventArgs args)
     {
@@ -156,6 +252,7 @@ public sealed partial class MainWindow
                     : $"{fixes.Length:N0} fixes · Start {ValueFormat.Time(fixes[0].Time)} · End {ValueFormat.Time(fixes[^1].Time)}" +
                         (history.Limited ? " · Showing the most recent fixes" : ""));
                 NodeMap.SetTrail(fixes);
+                if (source.Type == "meshtastic_tcp") SetPlaybackHistory(fixes);
             }
             catch
             {
@@ -173,6 +270,9 @@ public sealed partial class MainWindow
 
     private void ClearPositionTrail()
     {
+        replayTracks = [];
+        NodeMap.ClearGroupReplay();
+        SetPlaybackHistory([]);
         if (trailShown) NodeMap.SetTrail([]);
         trailShown = false;
         PositionHistoryToggle.Content = "Show trail";

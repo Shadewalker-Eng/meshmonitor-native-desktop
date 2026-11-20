@@ -1,0 +1,1662 @@
+{
+  "trigger.message": {
+    "label": "A message is received",
+    "fields": [
+      {
+        "name": "textContains",
+        "label": "Text contains",
+        "kind": "text",
+        "placeholder": "e.g. ping"
+      },
+      {
+        "name": "regex",
+        "label": "Text matches regex",
+        "kind": "text",
+        "placeholder": "e.g. (?i)^(test|ping)"
+      },
+      {
+        "name": "senderKind",
+        "label": "Sent by",
+        "kind": "select",
+        "options": [
+          {
+            "value": "human",
+            "label": "People only (skip automated messages)"
+          },
+          {
+            "value": "any",
+            "label": "Anyone"
+          },
+          {
+            "value": "automation",
+            "label": "Automations only"
+          }
+        ]
+      },
+      {
+        "name": "channels",
+        "label": "On channels",
+        "kind": "channelMulti"
+      },
+      {
+        "name": "channelName",
+        "label": "On channel (name)",
+        "kind": "text",
+        "placeholder": "any"
+      },
+      {
+        "name": "channel",
+        "label": "On channel #",
+        "kind": "number",
+        "placeholder": "any"
+      },
+      {
+        "name": "from",
+        "label": "From node #",
+        "kind": "number",
+        "placeholder": "any"
+      },
+      {
+        "name": "includeMeshCoreReactions",
+        "label": "Also fire on MeshCore reactions",
+        "kind": "checkbox"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodeDiscovered": {
+    "label": "A new node is discovered",
+    "fields": [
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodeUpdated": {
+    "label": "A node is updated",
+    "fields": [
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.telemetry": {
+    "label": "Telemetry is received",
+    "fields": [
+      {
+        "name": "telemetryType",
+        "label": "Metric",
+        "kind": "select",
+        "options": [
+          {
+            "value": "",
+            "label": "Any"
+          },
+          {
+            "value": "batteryLevel",
+            "label": "Battery level (%)"
+          },
+          {
+            "value": "voltage",
+            "label": "Voltage"
+          },
+          {
+            "value": "temperature",
+            "label": "Temperature"
+          },
+          {
+            "value": "channelUtilization",
+            "label": "Channel utilization"
+          },
+          {
+            "value": "airUtilTx",
+            "label": "Air util TX"
+          },
+          {
+            "value": "noiseFloor",
+            "label": "Noise floor (dBm) — local node only"
+          }
+        ]
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "3600"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.meshBeacon": {
+    "label": "A MeshBeacon is received",
+    "fields": [
+      {
+        "name": "messageContains",
+        "label": "Text contains",
+        "kind": "text"
+      },
+      {
+        "name": "requireOffer",
+        "label": "Only beacons offering a network",
+        "kind": "checkbox"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.schedule": {
+    "label": "On a schedule",
+    "fields": [
+      {
+        "name": "cron",
+        "label": "Cron expression",
+        "kind": "text",
+        "placeholder": "0 * * * *"
+      },
+      {
+        "name": "startAt",
+        "label": "Start (optional)",
+        "kind": "datetimeLocal"
+      },
+      {
+        "name": "endAt",
+        "label": "End (optional)",
+        "kind": "datetimeLocal"
+      },
+      {
+        "name": "timezone",
+        "label": "Time zone",
+        "kind": "timeZone"
+      }
+    ]
+  },
+  "trigger.system": {
+    "label": "A system event",
+    "fields": [
+      {
+        "name": "event",
+        "label": "Event",
+        "kind": "select",
+        "options": [
+          {
+            "value": "bootup",
+            "label": "System start (MeshMonitor started)"
+          },
+          {
+            "value": "source-connected",
+            "label": "Source came online"
+          },
+          {
+            "value": "source-disconnected",
+            "label": "Source went offline"
+          },
+          {
+            "value": "upgrade-available",
+            "label": "Upgrade available (new release detected)"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.geofence": {
+    "label": "A node enters/leaves a region",
+    "fields": [
+      {
+        "name": "event",
+        "label": "Event",
+        "kind": "select",
+        "options": [
+          {
+            "value": "enter",
+            "label": "Enters the region"
+          },
+          {
+            "value": "exit",
+            "label": "Leaves the region"
+          },
+          {
+            "value": "dwell",
+            "label": "Moves while inside the region"
+          }
+        ]
+      },
+      {
+        "name": "shape",
+        "label": "Region",
+        "kind": "geofence"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.becameMobile": {
+    "label": "A watched node becomes mobile",
+    "fields": [
+      {
+        "name": "nodeNums",
+        "label": "Watch nodes",
+        "kind": "nodeMulti"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.becameLikelyAircraft": {
+    "label": "A node becomes a likely aircraft",
+    "fields": [
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.leftHome": {
+    "label": "A watched node leaves its home position",
+    "fields": [
+      {
+        "name": "nodeNums",
+        "label": "Watch nodes",
+        "kind": "nodeMulti"
+      },
+      {
+        "name": "thresholdMeters",
+        "label": "Threshold (meters)",
+        "kind": "number",
+        "placeholder": "300"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodeStale": {
+    "label": "A node goes silent (heartbeat lost)",
+    "fields": [
+      {
+        "name": "staleAfterMinutes",
+        "label": "Silent for (minutes)",
+        "kind": "number",
+        "placeholder": "60"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodeOnline": {
+    "label": "A silent node is heard again (recovery)",
+    "fields": [
+      {
+        "name": "staleAfterMinutes",
+        "label": "Was silent for (minutes)",
+        "kind": "number",
+        "placeholder": "60"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodeRebooted": {
+    "label": "A node reboots unexpectedly",
+    "fields": [
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.nodePowerChanged": {
+    "label": "A node switches power source (mains ↔ battery)",
+    "fields": [
+      {
+        "name": "direction",
+        "label": "Direction",
+        "kind": "select",
+        "options": [
+          {
+            "value": "either",
+            "label": "Either direction"
+          },
+          {
+            "value": "lost",
+            "label": "Lost external power (now on battery)"
+          },
+          {
+            "value": "restored",
+            "label": "Regained external power"
+          }
+        ]
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.clockOutOfSync": {
+    "label": "A MeshCore node’s clock is out of sync",
+    "fields": [
+      {
+        "name": "thresholdSeconds",
+        "label": "Off by more than (seconds)",
+        "kind": "number",
+        "placeholder": "300"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.batteryTrend": {
+    "label": "A node’s battery is steadily draining",
+    "fields": [
+      {
+        "name": "windowHours",
+        "label": "Lookback window (hours)",
+        "kind": "number",
+        "placeholder": "12"
+      },
+      {
+        "name": "minDropPercent",
+        "label": "Minimum drop (percentage points)",
+        "kind": "number",
+        "placeholder": "20"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "trigger.neighborAdded": {
+    "label": "A repeater gains a confirmed new neighbour (MeshCore)",
+    "fields": [
+      {
+        "name": "confirmHours",
+        "label": "Confirm after (hours)",
+        "kind": "number",
+        "placeholder": "72"
+      },
+      {
+        "name": "cooldownSeconds",
+        "label": "Cooldown (seconds)",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "cooldownScope",
+        "label": "Cooldown applies to",
+        "kind": "select",
+        "options": [
+          {
+            "value": "automation",
+            "label": "The whole automation (one shared timer)"
+          },
+          {
+            "value": "node",
+            "label": "Each node separately"
+          },
+          {
+            "value": "sourceNode",
+            "label": "Each node, per source"
+          }
+        ]
+      }
+    ]
+  },
+  "condition.always": {
+    "label": "Always (no filtering)",
+    "fields": []
+  },
+  "condition.numeric": {
+    "label": "Number comparison",
+    "fields": [
+      {
+        "name": "field",
+        "label": "Field",
+        "kind": "fieldselect"
+      },
+      {
+        "name": "op",
+        "label": "Operator",
+        "kind": "select",
+        "options": [
+          {
+            "value": "==",
+            "label": "= equals"
+          },
+          {
+            "value": "!=",
+            "label": "≠ not equals"
+          },
+          {
+            "value": ">",
+            "label": "> greater than"
+          },
+          {
+            "value": "<",
+            "label": "< less than"
+          },
+          {
+            "value": ">=",
+            "label": "≥ at least"
+          },
+          {
+            "value": "<=",
+            "label": "≤ at most"
+          }
+        ]
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "kind": "text",
+        "placeholder": "e.g. 20 or {{ var.threshold }}"
+      }
+    ]
+  },
+  "condition.string": {
+    "label": "Text comparison",
+    "fields": [
+      {
+        "name": "field",
+        "label": "Field",
+        "kind": "fieldselect"
+      },
+      {
+        "name": "op",
+        "label": "Operator",
+        "kind": "select",
+        "options": [
+          {
+            "value": "contains",
+            "label": "contains"
+          },
+          {
+            "value": "eq",
+            "label": "equals"
+          },
+          {
+            "value": "startsWith",
+            "label": "starts with"
+          },
+          {
+            "value": "endsWith",
+            "label": "ends with"
+          },
+          {
+            "value": "regex",
+            "label": "matches regex"
+          },
+          {
+            "value": "notContains",
+            "label": "doesn't contain"
+          },
+          {
+            "value": "in",
+            "label": "is one of (comma list)"
+          },
+          {
+            "value": "notIn",
+            "label": "isn't one of (comma list)"
+          }
+        ]
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "kind": "text",
+        "placeholder": "e.g. ROUTER"
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "kind": "text",
+        "placeholder": "e.g. (?i)^(test|ping)"
+      }
+    ]
+  },
+  "condition.meshcoreScope": {
+    "label": "MeshCore message scope",
+    "fields": [
+      {
+        "name": "mode",
+        "label": "Match",
+        "kind": "select",
+        "options": [
+          {
+            "value": "named",
+            "label": "A specific region…"
+          },
+          {
+            "value": "unscoped",
+            "label": "Unscoped (no region)"
+          },
+          {
+            "value": "scoped",
+            "label": "Any scoped message"
+          }
+        ]
+      },
+      {
+        "name": "regions",
+        "label": "Region(s)",
+        "kind": "regionSelect",
+        "placeholder": "e.g. de, eu"
+      },
+      {
+        "name": "includeUnscoped",
+        "label": "Also match unscoped",
+        "kind": "checkbox"
+      }
+    ]
+  },
+  "condition.sourceFilter": {
+    "label": "Source is one of…",
+    "fields": [
+      {
+        "name": "sourceIds",
+        "label": "Sources",
+        "kind": "sourceMulti"
+      }
+    ]
+  },
+  "condition.distance": {
+    "label": "Distance from a point",
+    "fields": [
+      {
+        "name": "op",
+        "label": "Operator",
+        "kind": "select",
+        "options": [
+          {
+            "value": "<",
+            "label": "within (<)"
+          },
+          {
+            "value": ">",
+            "label": "farther than (>)"
+          }
+        ]
+      },
+      {
+        "name": "km",
+        "label": "Distance (km)",
+        "kind": "number",
+        "placeholder": "5"
+      },
+      {
+        "name": "lat",
+        "label": "Reference latitude",
+        "kind": "number"
+      },
+      {
+        "name": "lon",
+        "label": "Reference longitude",
+        "kind": "number"
+      }
+    ]
+  },
+  "condition.variable": {
+    "label": "Variable check",
+    "fields": [
+      {
+        "name": "variable",
+        "label": "Variable",
+        "kind": "variable"
+      },
+      {
+        "name": "op",
+        "label": "Operator",
+        "kind": "select",
+        "options": [
+          {
+            "value": "",
+            "label": "is set / true"
+          },
+          {
+            "value": "==",
+            "label": "= equals"
+          },
+          {
+            "value": "!=",
+            "label": "≠ not equals"
+          },
+          {
+            "value": ">",
+            "label": "> greater than"
+          },
+          {
+            "value": "<",
+            "label": "< less than"
+          },
+          {
+            "value": ">=",
+            "label": "≥ at least"
+          },
+          {
+            "value": "<=",
+            "label": "≤ at most"
+          }
+        ]
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "kind": "text",
+        "placeholder": "optional"
+      }
+    ]
+  },
+  "condition.timeRange": {
+    "label": "Time of day",
+    "fields": [
+      {
+        "name": "start",
+        "label": "From (HH:MM)",
+        "kind": "text",
+        "placeholder": "08:00"
+      },
+      {
+        "name": "end",
+        "label": "To (HH:MM)",
+        "kind": "text",
+        "placeholder": "20:00"
+      }
+    ]
+  },
+  "action.tapback": {
+    "label": "Send a tapback (reaction)",
+    "fields": [
+      {
+        "name": "emojiMode",
+        "label": "Emoji source",
+        "kind": "select",
+        "options": [
+          {
+            "value": "fixed",
+            "label": "A fixed emoji"
+          },
+          {
+            "value": "hopCount",
+            "label": "The message's hop count (*️⃣ direct, 1️⃣–7️⃣)"
+          }
+        ]
+      },
+      {
+        "name": "emoji",
+        "label": "Emoji",
+        "kind": "emoji",
+        "placeholder": "👍"
+      },
+      {
+        "name": "sourceIds",
+        "label": "Send via sources",
+        "kind": "sendSourceMulti"
+      },
+      {
+        "name": "hopLimit",
+        "label": "Hop limit",
+        "kind": "select",
+        "options": [
+          {
+            "value": "inherit",
+            "label": "Inherit (the node's own hop limit)"
+          },
+          {
+            "value": "0",
+            "label": "0 — local only, no relay"
+          },
+          {
+            "value": "1",
+            "label": "1"
+          },
+          {
+            "value": "2",
+            "label": "2"
+          },
+          {
+            "value": "3",
+            "label": "3"
+          },
+          {
+            "value": "4",
+            "label": "4"
+          },
+          {
+            "value": "5",
+            "label": "5"
+          },
+          {
+            "value": "6",
+            "label": "6"
+          },
+          {
+            "value": "7",
+            "label": "7"
+          }
+        ]
+      }
+    ]
+  },
+  "action.sendMessage": {
+    "label": "Send a message",
+    "fields": [
+      {
+        "name": "text",
+        "label": "Message",
+        "kind": "textarea",
+        "placeholder": "Hello {{ trigger.senderLabel }}!"
+      },
+      {
+        "name": "sourceIds",
+        "label": "Send via sources",
+        "kind": "sendSourceMulti"
+      },
+      {
+        "name": "channels",
+        "label": "On channels",
+        "kind": "channelMulti"
+      },
+      {
+        "name": "to",
+        "label": "DM to node #",
+        "kind": "text",
+        "placeholder": "blank = channel; {{ trigger.from }} replies to sender"
+      },
+      {
+        "name": "replyToTrigger",
+        "label": "Reply to the triggering message",
+        "kind": "checkbox"
+      },
+      {
+        "name": "maxAttempts",
+        "label": "DM resend attempts",
+        "kind": "number",
+        "placeholder": "1"
+      },
+      {
+        "name": "splitLongMessages",
+        "label": "Split long messages",
+        "kind": "checkbox"
+      },
+      {
+        "name": "hopLimit",
+        "label": "Hop limit",
+        "kind": "select",
+        "options": [
+          {
+            "value": "inherit",
+            "label": "Inherit (the node's own hop limit)"
+          },
+          {
+            "value": "0",
+            "label": "0 — local only, no relay"
+          },
+          {
+            "value": "1",
+            "label": "1"
+          },
+          {
+            "value": "2",
+            "label": "2"
+          },
+          {
+            "value": "3",
+            "label": "3"
+          },
+          {
+            "value": "4",
+            "label": "4"
+          },
+          {
+            "value": "5",
+            "label": "5"
+          },
+          {
+            "value": "6",
+            "label": "6"
+          },
+          {
+            "value": "7",
+            "label": "7"
+          }
+        ]
+      },
+      {
+        "name": "scopeMode",
+        "label": "MeshCore scope",
+        "kind": "select",
+        "options": [
+          {
+            "value": "inherit",
+            "label": "Inherit (channel / source default)"
+          },
+          {
+            "value": "trigger",
+            "label": "Match the triggering message's scope"
+          },
+          {
+            "value": "unscoped",
+            "label": "Unscoped (flood, no region)"
+          },
+          {
+            "value": "named",
+            "label": "A specific region…"
+          }
+        ]
+      },
+      {
+        "name": "scopeName",
+        "label": "Region",
+        "kind": "regionSelect",
+        "placeholder": "e.g. paris"
+      }
+    ]
+  },
+  "action.tracePathSchedule": {
+    "label": "Trace MeshCore paths on a schedule",
+    "fields": [
+      {
+        "name": "paths",
+        "label": "Paths",
+        "kind": "tracePaths"
+      },
+      {
+        "name": "sourceIds",
+        "label": "Via MeshCore sources",
+        "kind": "sendSourceMulti"
+      },
+      {
+        "name": "autoReturn",
+        "label": "Trace the return leg too",
+        "kind": "checkbox"
+      }
+    ]
+  },
+  "action.nodeManage": {
+    "label": "Manage the node",
+    "fields": [
+      {
+        "name": "op",
+        "label": "Operation",
+        "kind": "select",
+        "options": [
+          {
+            "value": "favorite",
+            "label": "Favorite"
+          },
+          {
+            "value": "unfavorite",
+            "label": "Unfavorite"
+          },
+          {
+            "value": "ignore",
+            "label": "Ignore"
+          },
+          {
+            "value": "unignore",
+            "label": "Unignore"
+          },
+          {
+            "value": "delete",
+            "label": "Delete"
+          }
+        ]
+      }
+    ]
+  },
+  "action.requestData": {
+    "label": "Request data from a node",
+    "fields": [
+      {
+        "name": "op",
+        "label": "Request",
+        "kind": "select",
+        "options": [
+          {
+            "value": "telemetry",
+            "label": "Telemetry"
+          },
+          {
+            "value": "position",
+            "label": "Position (Meshtastic)"
+          },
+          {
+            "value": "traceroute",
+            "label": "Traceroute / path"
+          },
+          {
+            "value": "nodeinfo",
+            "label": "Node info exchange (Meshtastic)"
+          },
+          {
+            "value": "neighbors",
+            "label": "Neighbor info"
+          },
+          {
+            "value": "advert",
+            "label": "Announce self (advert)"
+          }
+        ]
+      },
+      {
+        "name": "telemetryType",
+        "label": "Telemetry type",
+        "kind": "select",
+        "options": [
+          {
+            "value": "device",
+            "label": "Device"
+          },
+          {
+            "value": "environment",
+            "label": "Environment"
+          },
+          {
+            "value": "airQuality",
+            "label": "Air quality"
+          },
+          {
+            "value": "power",
+            "label": "Power"
+          }
+        ]
+      },
+      {
+        "name": "advertMode",
+        "label": "Advert reach (MeshCore)",
+        "kind": "select",
+        "options": [
+          {
+            "value": "zero_hop",
+            "label": "Zero-hop (nearby nodes only)"
+          },
+          {
+            "value": "flood",
+            "label": "Flood (whole mesh)"
+          }
+        ]
+      },
+      {
+        "name": "sourceIds",
+        "label": "Via sources",
+        "kind": "sendSourceMulti"
+      },
+      {
+        "name": "to",
+        "label": "Target node",
+        "kind": "text",
+        "placeholder": "blank = triggering node; {{ trigger.from }}"
+      },
+      {
+        "name": "channel",
+        "label": "Channel #",
+        "kind": "number",
+        "placeholder": "blank = triggering channel"
+      }
+    ]
+  },
+  "action.broadcastWaypoint": {
+    "label": "Broadcast a waypoint",
+    "fields": [
+      {
+        "name": "sourceId",
+        "label": "Send via source",
+        "kind": "meshtasticSourceSelect"
+      },
+      {
+        "name": "waypointKey",
+        "label": "Waypoint key",
+        "kind": "text",
+        "placeholder": "e.g. border-north"
+      },
+      {
+        "name": "latitude",
+        "label": "Latitude",
+        "kind": "text",
+        "placeholder": "32.5423 or {{ var.wait.lat }}"
+      },
+      {
+        "name": "longitude",
+        "label": "Longitude",
+        "kind": "text",
+        "placeholder": "-117.0291 or {{ var.wait.lon }}"
+      },
+      {
+        "name": "name",
+        "label": "Name",
+        "kind": "text",
+        "placeholder": "San Ysidro {{ var.wait.minutes }} min"
+      },
+      {
+        "name": "description",
+        "label": "Description",
+        "kind": "textarea"
+      },
+      {
+        "name": "icon",
+        "label": "Icon",
+        "kind": "emoji",
+        "placeholder": "📍"
+      },
+      {
+        "name": "expireHours",
+        "label": "Expires after (hours)",
+        "kind": "text",
+        "placeholder": "blank = never"
+      },
+      {
+        "name": "channel",
+        "label": "Channel #",
+        "kind": "number",
+        "placeholder": "0"
+      },
+      {
+        "name": "hopLimit",
+        "label": "Hop limit",
+        "kind": "select",
+        "options": [
+          {
+            "value": "inherit",
+            "label": "Inherit (the node's own hop limit)"
+          },
+          {
+            "value": "0",
+            "label": "0 — local only, no relay"
+          },
+          {
+            "value": "1",
+            "label": "1"
+          },
+          {
+            "value": "2",
+            "label": "2"
+          },
+          {
+            "value": "3",
+            "label": "3"
+          },
+          {
+            "value": "4",
+            "label": "4"
+          },
+          {
+            "value": "5",
+            "label": "5"
+          },
+          {
+            "value": "6",
+            "label": "6"
+          },
+          {
+            "value": "7",
+            "label": "7"
+          }
+        ]
+      },
+      {
+        "name": "onlyWhenChanged",
+        "label": "Only send when changed",
+        "kind": "checkbox"
+      }
+    ]
+  },
+  "action.deviceReboot": {
+    "label": "Reboot the node",
+    "fields": [
+      {
+        "name": "sourceIds",
+        "label": "Reboot which node(s)",
+        "kind": "sendSourceMulti"
+      },
+      {
+        "name": "targetNodeNum",
+        "label": "Remote target node #",
+        "kind": "nodeNum",
+        "placeholder": "blank = locally-connected node; 1017730782 or !3ca956de"
+      },
+      {
+        "name": "seconds",
+        "label": "Reboot delay (seconds)",
+        "kind": "number",
+        "placeholder": "10"
+      }
+    ]
+  },
+  "action.setAutomationEnabled": {
+    "label": "Enable or disable an automation",
+    "fields": [
+      {
+        "name": "automationId",
+        "label": "Automation",
+        "kind": "automationSelect"
+      },
+      {
+        "name": "mode",
+        "label": "Change",
+        "kind": "select",
+        "options": [
+          {
+            "value": "set",
+            "label": "Set to"
+          },
+          {
+            "value": "toggle",
+            "label": "Toggle (flip its current state)"
+          }
+        ]
+      },
+      {
+        "name": "enabled",
+        "label": "New state",
+        "kind": "select",
+        "options": [
+          {
+            "value": "false",
+            "label": "Disabled"
+          },
+          {
+            "value": "true",
+            "label": "Enabled"
+          }
+        ]
+      }
+    ]
+  },
+  "action.setSourceForwardingEnabled": {
+    "label": "Turn forwarding on or off",
+    "fields": [
+      {
+        "name": "sourceId",
+        "label": "Source",
+        "kind": "forwardingSourceSelect"
+      },
+      {
+        "name": "mode",
+        "label": "Change",
+        "kind": "select",
+        "options": [
+          {
+            "value": "set",
+            "label": "Set to"
+          },
+          {
+            "value": "toggle",
+            "label": "Toggle (flip its current state)"
+          }
+        ]
+      },
+      {
+        "name": "enabled",
+        "label": "New state",
+        "kind": "select",
+        "options": [
+          {
+            "value": "false",
+            "label": "Off"
+          },
+          {
+            "value": "true",
+            "label": "On"
+          }
+        ]
+      }
+    ]
+  },
+  "action.notify": {
+    "label": "Send a notification",
+    "fields": [
+      {
+        "name": "title",
+        "label": "Title",
+        "kind": "text",
+        "placeholder": "MeshMonitor alert"
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "kind": "textarea",
+        "placeholder": "Node {{ trigger.fromId }} said {{ trigger.text }}"
+      },
+      {
+        "name": "type",
+        "label": "Severity",
+        "kind": "select",
+        "options": [
+          {
+            "value": "info",
+            "label": "Info"
+          },
+          {
+            "value": "success",
+            "label": "Success"
+          },
+          {
+            "value": "warning",
+            "label": "Warning"
+          },
+          {
+            "value": "failure",
+            "label": "Failure"
+          }
+        ]
+      },
+      {
+        "name": "urls",
+        "label": "Apprise URL(s)",
+        "kind": "textarea",
+        "placeholder": "discord://… or tgram://… (one per line)"
+      }
+    ]
+  },
+  "flow.setVar": {
+    "label": "Set a variable / flag",
+    "fields": [
+      {
+        "name": "variable",
+        "label": "Variable",
+        "kind": "variable"
+      },
+      {
+        "name": "op",
+        "label": "Action",
+        "kind": "select",
+        "options": [
+          {
+            "value": "set",
+            "label": "Set to value"
+          },
+          {
+            "value": "increment",
+            "label": "Increment by"
+          },
+          {
+            "value": "flag",
+            "label": "Raise flag"
+          },
+          {
+            "value": "clear",
+            "label": "Clear / lower flag"
+          }
+        ]
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "kind": "text",
+        "placeholder": "for Set / Increment"
+      }
+    ]
+  },
+  "action.nothing": {
+    "label": "Do nothing",
+    "fields": []
+  },
+  "action.runScript": {
+    "label": "Run a script",
+    "fields": [
+      {
+        "name": "scriptPath",
+        "label": "Script",
+        "kind": "scriptselect"
+      },
+      {
+        "name": "args",
+        "label": "Arguments",
+        "kind": "text",
+        "placeholder": "e.g. --from {{ trigger.from }} --text \"{{ trigger.text }}\""
+      },
+      {
+        "name": "resultVariable",
+        "label": "Store result in",
+        "kind": "resultTarget"
+      },
+      {
+        "name": "timeoutSeconds",
+        "label": "Timeout (seconds)",
+        "kind": "number",
+        "placeholder": "30"
+      }
+    ]
+  },
+  "action.delay": {
+    "label": "Pause",
+    "fields": [
+      {
+        "name": "seconds",
+        "label": "Seconds",
+        "kind": "number",
+        "placeholder": "5"
+      }
+    ]
+  }
+}

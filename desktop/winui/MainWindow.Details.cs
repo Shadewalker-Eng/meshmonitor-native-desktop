@@ -110,8 +110,31 @@ public sealed partial class MainWindow
     private async void OnTelemetryHistory(object sender, RoutedEventArgs args) => await RunAsync(async client =>
     {
         if (TelemetryList.SelectedItem is not TelemetryRow { HasHistory: true } reading) return;
+        await ShowTelemetryHistory(client, reading);
+    });
+
+    private async void OnNodeTelemetry(object sender, RoutedEventArgs args) => await RunAsync(async client =>
+    {
+        if (NodesList.SelectedItem is not NodeRow node || SourcesList.SelectedItem is not SourceRow source) return;
+        string owner = source.IsUnified ? node.SourceId : source.Id;
+        if (string.IsNullOrEmpty(owner)) return;
+        var metrics = await client.NodeMetrics(owner, node);
+        if (closed) return;
+        if (metrics.Length == 0)
+        {
+            ShowNotice("No telemetry for this node in the last 7 days.", InfoBarSeverity.Informational);
+            return;
+        }
+        var picker = new ComboBox { Header = "Metric", ItemsSource = metrics.Select(row =>
+            row.Unit.Length > 0 ? $"{row.Type} ({row.Unit})" : row.Type).ToArray(), SelectedIndex = 0 };
+        if (await Form(node.Name, "Show history", picker).ShowAsync() != ContentDialogResult.Primary || closed) return;
+        await ShowTelemetryHistory(client, metrics[picker.SelectedIndex], 3);
+    });
+
+    private async Task ShowTelemetryHistory(MeshApi client, TelemetryRow reading, int window = 2)
+    {
         (int Hours, string Label)[] windows = [(1, "1 hour"), (6, "6 hours"), (24, "24 hours"), (168, "7 days")];
-        var range = new ComboBox { Header = "Time range", ItemsSource = windows.Select(item => item.Label).ToArray(), SelectedIndex = 2 };
+        var range = new ComboBox { Header = "Time range", ItemsSource = windows.Select(item => item.Label).ToArray(), SelectedIndex = window };
         var status = Wrapped("Loading history…");
         var labels = new Grid();
         labels.ColumnDefinitions.Add(new ColumnDefinition());
@@ -171,7 +194,7 @@ public sealed partial class MainWindow
         _ = LoadAsync();
         try { await opened; }
         finally { showing = false; }
-    });
+    }
 
     private ContentDialog DetailDialog(string title, FrameworkElement content) => new()
     {
@@ -198,7 +221,7 @@ public sealed partial class MainWindow
     private static void DrawChart(Canvas canvas, TelemetryPoint[] points)
         => DrawTelemetryLines(canvas, [new("", "", "", points)]);
 
-    private static void DrawTelemetryLines(Canvas canvas, TelemetryLine[] lines)
+    private static void DrawTelemetryLines(Canvas canvas, TelemetryLine[] lines, double? minimum = null, double? maximum = null, bool scatter = false)
     {
         canvas.Children.Clear();
         const double inset = 8;
@@ -217,7 +240,8 @@ public sealed partial class MainWindow
             });
         }
 
-        double low = points.Min(point => point.Value), high = points.Max(point => point.Value);
+        double low = minimum ?? points.Min(point => point.Value), high = maximum ?? points.Max(point => point.Value);
+        canvas.Clip = new RectangleGeometry { Rect = new Rect(inset - 4, inset - 4, width + 8, height + 8) };
         var start = points.Min(point => point.Time);
         double seconds = (points.Max(point => point.Time) - start).TotalSeconds;
         for (int index = 0; index < lines.Length; index++)
@@ -233,11 +257,12 @@ public sealed partial class MainWindow
                 double y = high > low ? (high - point.Value) / (high - low) : .5;
                 series.Points.Add(new Point(inset + x * width, inset + y * height));
             }
-            if (series.Points.Count == 1)
+            if (scatter || series.Points.Count == 1)
+            foreach (var location in series.Points)
             {
                 var marker = new Ellipse { Fill = series.Stroke, Width = 8, Height = 8 };
-                Canvas.SetLeft(marker, series.Points[0].X - 4);
-                Canvas.SetTop(marker, series.Points[0].Y - 4);
+                Canvas.SetLeft(marker, location.X - 4);
+                Canvas.SetTop(marker, location.Y - 4);
                 canvas.Children.Add(marker);
             }
             else canvas.Children.Add(series);

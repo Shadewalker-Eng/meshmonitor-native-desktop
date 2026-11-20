@@ -52,7 +52,7 @@ replaceExpected(adminRoutes,
             !Number.isInteger(destinationNodeNum) || destinationNodeNum < 1 || destinationNodeNum >= 0xffffffff))
             return res.status(409).json({ error: 'Select a remote node distinct from the connected local radio.' });
         // Session-passkey acquisition used to run HERE`);
-for (const manager of ['adminLoadManager', 'gcManager', 'loManager']) {
+for (const manager of ['adminLoadManager', 'gcManager', 'loManager', 'gdmManager']) {
   const marker = `const localNodeNum = ${manager}.getLocalNodeInfo()?.nodeNum || 0;`;
   replaceExpected(adminRoutes, marker, `${marker}
         if (req.body.desktopRemoteOnly === true && (!localNodeNum || !Number.isInteger(destinationNodeNum) ||
@@ -70,3 +70,53 @@ function replaceExpected(path, ...pairs) {
   }
   writeFileSync(path, contents);
 }
+
+// Device sections 0–7 have GetConfig responses. Only resolve a desktop read
+// when this connected source receives the requested section from its own node.
+const managerFile = join(dist, 'server', 'meshtasticManager.js');
+replaceExpected(managerFile, '    localModuleConfigWaiters = new Map();', `    desktopDeviceWaiters = new Map();
+    async desktopReadDevice(configType, nodeNum) {
+        const field = ['device','position','power','network','display','lora','bluetooth','security'][configType];
+        if (!field || this.desktopDeviceWaiters.has(field)) throw new Error('Readback unavailable or already pending.');
+        return new Promise((resolve, reject) => {
+            const finish = (section) => {
+                clearTimeout(timer);
+                this.desktopDeviceWaiters.delete(field);
+                if (section == null) reject(new Error('No device reply.'));
+                else resolve(section);
+            };
+            const timer = setTimeout(() => finish(null), 7000);
+            this.desktopDeviceWaiters.set(field, { nodeNum, finish });
+            this.requestConfig(configType).catch(() => {
+                if (this.desktopDeviceWaiters.get(field)?.finish === finish) finish(null);
+            });
+        });
+    }
+    localModuleConfigWaiters = new Map();`);
+replaceExpected(managerFile, '            if (adminMsg.getModuleConfigResponse) {\n                logger.debug(\'⚙️ Received GetModuleConfigResponse from node\'', `            if (localNodeNum && fromNum === localNodeNum && adminMsg.getConfigResponse) {
+                for (const [field, pending] of this.desktopDeviceWaiters) {
+                    const response = adminMsg.getConfigResponse[field];
+                    if (pending.nodeNum === localNodeNum && response != null) pending.finish(response);
+                }
+            }
+            if (adminMsg.getModuleConfigResponse) {
+                logger.debug('⚙️ Received GetModuleConfigResponse from node'`);
+replaceExpected(routes, "router.post('/local-module-readback',", `router.post('/local-device-readback', requireDeviceSourcePermission('configuration', 'write', 'body'), async (req, res) => {
+    if (!req.user?.isAdmin) return res.status(403).json({ error: 'Admin access required.' });
+    const { manager } = getDeviceSourceTarget(req);
+    const { configType, nodeId } = req.body;
+    if (!Number.isInteger(configType) || configType < 0 || configType > 7 || typeof nodeId !== 'string')
+        return res.status(400).json({ error: 'Invalid device section or node ID.' });
+    const local = manager.getLocalNodeInfo();
+    if (!manager.isDeviceConnected() || !local?.nodeNum || local.nodeId !== nodeId)
+        return res.status(409).json({ error: 'The selected local radio changed.' });
+    try {
+        const section = await manager.desktopReadDevice(configType, local.nodeNum);
+        if (!manager.isDeviceConnected() || manager.getLocalNodeInfo()?.nodeId !== nodeId)
+            return res.status(409).json({ error: 'The selected radio disconnected.' });
+        return res.json({ nodeId, section });
+    } catch {
+        return res.status(409).json({ error: 'The selected radio did not confirm this device section.' });
+    }
+});
+router.post('/local-module-readback',`);
