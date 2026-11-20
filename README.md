@@ -8,7 +8,7 @@
 
 This fork adds a native WinUI 3 dashboard for Windows x64. It uses the Windows 11 light theme and runs the MeshMonitor 4.18.0 Node.js backend locally. The app can stay in the system tray and provides shortcuts to its data and logs.
 
-## What’s in the Windows v18 preview
+## What’s in the Windows v19 preview
 
 - **Map and nodes** — Browse a color topographic map or switch to Light Gray. Search by node name, short name, or ID, distinguish duplicate IDs by source, and inspect recorded movement over the last hour, 24 hours, or 7 days.
 - **Messaging** — Open source-specific channel and direct conversations, load older messages, and inspect recorded delivery events. Meshtastic channels also support replies and unread controls.
@@ -18,7 +18,7 @@ This fork adds a native WinUI 3 dashboard for Windows x64. It uses the Windows 1
 ### Radio settings and remote administration
 
 - **Local Meshtastic settings.** Select a connected Meshtastic TCP source and open **Radio configuration** to edit supported device, module, and channel settings. LoRa includes **Serial HAL Only**. Module saves compare the edited values with the radio’s reply. Device UI is read-only.
-- **Remote Meshtastic settings.** Sign in as an administrator, select a connected Meshtastic TCP source, then choose a target in **Nodes** and select **Administer selected radio**. The panel reports queued saves, routing acknowledgements, verified readback, and timeouts. Owner, channel, and Security changes report command status. Queued saves continue after the panel closes.
+- **Remote Meshtastic settings.** Sign in as an administrator, select a connected Meshtastic TCP source, then choose a target in **Nodes** and select **Administer selected radio**. The panel reports queued saves, routing acknowledgements, verified readback, and timeouts. Owner, channel, and Security changes report command status. Queued saves continue after the panel closes. Reopen the same node and use **Recent remote saves → Check save status** to check a submission from the current sign-in session.
 
 The Windows build and backend smoke tests passed. Live remote saves still need verification with two radios. [Radio configuration guide](desktop/winui/README.md#radio-configuration)
 

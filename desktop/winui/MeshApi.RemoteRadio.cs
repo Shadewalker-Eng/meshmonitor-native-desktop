@@ -75,7 +75,8 @@ internal sealed partial class MeshApi
         return await RequestAsync("api/admin/commands", body);
     }
 
-    internal async Task TrackRemoteRadioSave(JsonElement accepted, Action<string> report, CancellationToken stopWatching)
+    internal async Task TrackRemoteRadioSave(JsonElement accepted, Action<string> report, CancellationToken stopWatching,
+        bool follow = true)
     {
         string? job = accepted.String("verifyJobId");
         string? operation = accepted.String("operationId");
@@ -118,6 +119,7 @@ internal sealed partial class MeshApi
                 return;
             }
             report(progress);
+            if (!follow) return;
             await Task.Delay(TimeSpan.FromSeconds(2), stopWatching);
         }
     }

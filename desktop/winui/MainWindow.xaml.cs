@@ -165,6 +165,7 @@ public sealed partial class MainWindow : Window
         canReadSourceSettings = canWriteSources = false;
         radioPermissions = default;
         radioAdmin = false;
+        recentRemoteSaves = new();
         needsCode = false;
         timer.Stop();
         Workspace.Visibility = Visibility.Collapsed;

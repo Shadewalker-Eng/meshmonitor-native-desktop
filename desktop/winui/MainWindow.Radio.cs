@@ -9,6 +9,8 @@ public sealed partial class MainWindow
 {
     private JsonElement radioPermissions;
     private bool radioAdmin;
+    private sealed record RemoteSave(string SourceId, string NodeId, string Label, JsonElement Receipt);
+    private List<RemoteSave> recentRemoteSaves = new();
 
     private bool HasRadioGrant(SourceRow source, string action) =>
         radioAdmin || radioPermissions.Property(source.Id).Property("configuration").Flag(action) == true;
@@ -64,6 +66,45 @@ public sealed partial class MainWindow
         bool showing = true;
         using var stopWatching = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var trackingToken = stopWatching.Token;
+        var sessionSaves = recentRemoteSaves;
+        var history = new ComboBox { Header = "Recent remote saves" };
+        var historyResult = Wrapped("");
+        var checkStatus = new Button { Content = "Check save status" };
+        var historyPanel = new StackPanel { Spacing = 6 };
+        if (target is not null)
+        {
+            historyPanel.Children.Add(history);
+            historyPanel.Children.Add(checkStatus);
+            historyPanel.Children.Add(historyResult);
+            content.Children.Insert(2, historyPanel);
+            UpdateHistory();
+        }
+
+        void UpdateHistory()
+        {
+            var matches = sessionSaves.Where(item => item.SourceId == source.Id && item.NodeId == target?.Id).ToArray();
+            historyPanel.Visibility = matches.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            history.ItemsSource = matches.Select(item => new ComboBoxItem { Content = item.Label, Tag = item }).ToArray();
+            history.SelectedIndex = matches.Length == 0 ? -1 : 0;
+        }
+        history.SelectionChanged += (_, _) => historyResult.Text = "";
+        checkStatus.Click += async (_, _) =>
+        {
+            if (history.SelectedItem is not ComboBoxItem { Tag: RemoteSave selected } choice) return;
+            checkStatus.IsEnabled = false;
+            try
+            {
+                await client.TrackRemoteRadioSave(selected.Receipt, message =>
+                {
+                    if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = message;
+                }, trackingToken, follow: false);
+            }
+            catch (Exception error)
+            {
+                if (showing && !closed && ReferenceEquals(history.SelectedItem, choice)) historyResult.Text = error.Message;
+            }
+            finally { if (showing && !closed) checkStatus.IsEnabled = true; }
+        };
         bool working = false;
         bool online = false;
         RadioSection Section() => sections[Math.Max(0, selector.SelectedIndex)];
@@ -263,6 +304,10 @@ public sealed partial class MainWindow
                 {
                     var operation = await client.StartRemoteRadioSave(source, target.Id, section, payload);
                     sent = true;
+                    sessionSaves.Insert(0, new(source.Id, target.Id, $"{section.Label} · {DateTime.Now:G}", operation));
+                    if (sessionSaves.Count > 100) sessionSaves.RemoveAt(sessionSaves.Count - 1);
+                    if (!showing || closed) return;
+                    UpdateHistory();
                     snapshot = default;
                     status.Text = "Remote save queued…";
                     await client.TrackRemoteRadioSave(operation,
