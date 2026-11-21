@@ -8,23 +8,25 @@
 
 This fork adds a native WinUI 3 dashboard for Windows x64. It uses the Windows 11 light theme and runs the MeshMonitor 4.18.0 Node.js backend locally. The app can stay in the system tray and provides shortcuts to its data and logs.
 
-## What’s in the Windows v19 preview
+## Windows x64 release · native-v28
 
-- **Map and nodes** — Browse a color topographic map or switch to Light Gray. Search by node name, short name, or ID, distinguish duplicate IDs by source, and inspect recorded movement over the last hour, 24 hours, or 7 days.
-- **Messaging** — Open source-specific channel and direct conversations, load older messages, and inspect recorded delivery events. Meshtastic channels also support replies and unread controls.
-- **Telemetry** — View recent readings and their history, save source-scoped favorites, and compare the same metric across sources.
-- **Sources** — View connection diagnostics and recent node counts. With source write access, rename, enable, or disable sources. Meshtastic TCP sources also support hostname and port editing for accounts with source read access.
+Published November 21, 2026. [Download the Windows installer](https://github.com/Shadewalker-Eng/meshmonitor-native-desktop/releases/download/native-v28/MeshMonitor-Native-Setup-x64-v28.exe) · [GitHub release notes](https://github.com/Shadewalker-Eng/meshmonitor-native-desktop/releases/tag/native-v28)
 
-### Radio settings and remote administration
+Run `MeshMonitor-Native-Setup-x64-v28.exe` and choose **Install**. Setup installs for the current Windows user and updates the **MeshMonitor Native** Start menu shortcut. If an older version is running, quit it from its tray menu before launching v28. The new version opens your existing desktop database.
 
-- **Local Meshtastic settings.** Select a connected Meshtastic TCP source and open **Radio configuration** to edit supported device, module, and channel settings. LoRa includes **Serial HAL Only**. Module saves compare the edited values with the radio’s reply. Device UI is read-only.
-- **Remote Meshtastic settings.** Sign in as an administrator, select a connected Meshtastic TCP source, then choose a target in **Nodes** and select **Administer selected radio**. The panel reports queued saves, routing acknowledgements, verified readback, and timeouts. Owner, channel, and Security changes report command status. Queued saves continue after the panel closes. Reopen the same node and use **Recent remote saves → Check save status** to check a submission from the current sign-in session.
+Installer SHA-256: `7de875b3c6462422c9b7613f2f3b72140dbc1a6a4efa55aae23084fd733e93c1`
 
-The Windows build and backend smoke tests passed. Live remote saves still need verification with two radios. [Radio configuration guide](desktop/winui/README.md#radio-configuration)
+### What’s new in v28
 
-### Build and run on Windows
+- **Maps and telemetry.** Save the startup map view and basemap, display imported layer colors and stroke widths, and arrange pinned telemetry charts in one to three columns. Select a sample to inspect its value and time.
+- **Packets and RF coverage.** Sort report columns, view a hop-count histogram, and follow a sender from its coverage summary to individual receptions and Meshtastic packet history.
+- **Radio and messaging.** Administrators can edit local Meshtastic Device UI preferences such as brightness, timeout, and language on supported firmware. The editor requests a fresh radio reply to verify changes. Remote administration tracks save status per node. MeshCore adds contact path discovery and paged channel history. [Radio configuration guide](desktop/winui/README.md#radio-configuration)
+- **Automation and integrations.** Insert branches into automation rules and edit nested parameters, notification destinations, MQTT filters, topic rewrites, and broker forwarding targets with native controls.
+- **Accounts and recovery.** Manage local users, administrator roles, and source permissions. The sign-in screen supports passkeys and configured OIDC providers. Under **Tools → Accounts and backups**, administrators can export a backup or restore one into a separate profile, keeping the original database available. [Installation and recovery guide](desktop/winui/README.md#version-28-installation-and-recovery)
 
-Use Windows x64 and the .NET 8 SDK. The [WinUI build guide](desktop/winui/README.md#build-from-source) covers preparing the backend payload and publishing `MeshMonitor.Native.exe`. Keep the executable and its bundled files together. If an older build is running, quit it from the tray before starting the new one. The [feature parity table](desktop/winui/README.md#parity-with-meshmonitor-4180) lists the remaining work.
+The Windows Release build succeeded and the installer contents were checked against the portable build. Automated tests were skipped for v28. Live radio readback, provider sign-in, external delivery, and end-to-end recovery still await verification. [Feature parity table](desktop/winui/README.md#parity-with-meshmonitor-4180)
+
+To build the Windows app from source, use the .NET 8 SDK and the bundled MeshMonitor 4.18.0 backend. [WinUI build guide](desktop/winui/README.md#build-from-source)
 
 ## Upstream MeshMonitor web dashboard
 
