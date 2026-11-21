@@ -65,14 +65,19 @@ public sealed partial class MainWindow
                 else
                 {
                     bool structured=old is JsonObject or JsonArray || kind is "sourceMulti" or "sendSourceMulti" or "channelMulti" or "nodeMulti" or "geofence" or "tracePaths";
-                    string initial=structured?old?.ToJsonString()??"":old?.ToString()??"";
-                    var box=new TextBox{Header=label+(structured?" (JSON)":""),Text=initial,PlaceholderText=field.String("placeholder")??"",
-                        AcceptsReturn=structured || kind=="textarea",TextWrapping=TextWrapping.Wrap};
+                    if (structured)
+                    {
+                        inputs.Children.Add(StructuredField(label, old, old == null ? "Default" : "List", out var getValue));
+                        readers[key] = getValue;
+                        continue;
+                    }
+                    string initial=old?.ToString()??"";
+                    var box=new TextBox{Header=label,Text=initial,PlaceholderText=field.String("placeholder")??"",
+                        AcceptsReturn=kind=="textarea",TextWrapping=TextWrapping.Wrap};
                     readers[key]=()=>
                     {
                         if(box.Text==initial)return old?.DeepClone();
                         if(string.IsNullOrWhiteSpace(box.Text))return null;
-                        if(structured)return JsonNode.Parse(box.Text);
                         if(kind=="number")
                         {
                             if(!double.TryParse(box.Text,NumberStyles.Float,CultureInfo.CurrentCulture,out double number)||!double.IsFinite(number))

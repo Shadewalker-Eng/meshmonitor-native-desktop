@@ -20,7 +20,7 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
     private Task logPumps = Task.CompletedTask;
     private Task notificationLogs = Task.CompletedTask;
 
-    public async Task<Uri> StartAsync(CancellationToken cancellation)
+    public async Task<Uri> StartAsync(CancellationToken cancellation, string? restoreBackup = null)
     {
         string resources = Path.GetFullPath(
             Environment.GetEnvironmentVariable("MESHMONITOR_RESOURCES") ??
@@ -77,13 +77,19 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
         start.Environment["PORT"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         start.Environment["BIND_ADDRESS"] = "127.0.0.1";
         start.Environment["BASE_URL"] = "/";
-        start.Environment["ALLOWED_ORIGINS"] = origin.GetLeftPart(UriPartial.Authority);
+        start.Environment["ALLOWED_ORIGINS"] = origin.GetLeftPart(UriPartial.Authority) + $",http://localhost:{port}";
         start.Environment["DATA_DIR"] = dataDirectory;
         start.Environment["DATABASE_PATH"] = Path.Combine(dataDirectory, "meshmonitor.db");
         start.Environment["DATABASE_URL"] = "";
         start.Environment["SESSION_COOKIE_NAME"] = "meshmonitor.winui.sid";
         start.Environment["COOKIE_SECURE"] = "false";
         start.Environment["SESSION_SECRET"] = GetSessionSecret();
+        if (restoreBackup != null)
+        {
+            start.Environment["MESHMONITOR_DESKTOP_RESTORE"] = "1";
+            start.Environment["SYSTEM_BACKUP_DIR"] = Path.Combine(dataDirectory, "system-backups");
+            start.Environment["RESTORE_FROM_BACKUP"] = restoreBackup;
+        }
         start.Environment["IS_DESKTOP"] = "true";
         start.Environment["FIRMWARE_CHECK_ENABLED"] = "false";
         if (!start.Environment.TryGetValue("APPRISE_URL", out string? configuredApprise) ||
@@ -99,7 +105,17 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
             CopyLogAsync(child.StandardOutput.BaseStream, "server-stdout.log"),
             CopyLogAsync(child.StandardError.BaseStream, "server-stderr.log"));
 
-        await WaitUntilReadyAsync(origin, child, cancellation);
+        await WaitUntilReadyAsync(origin, child, cancellation, restoreBackup != null);
+        if (restoreBackup != null)
+        {
+            using var restoreDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            restoreDeadline.CancelAfter(TimeSpan.FromMinutes(30));
+            while (!File.Exists(Path.Combine(dataDirectory, ".desktop-restore-finished")))
+            {
+                if (child.HasExited) throw new InvalidOperationException("Backend exited during database recovery.");
+                await Task.Delay(350, restoreDeadline.Token);
+            }
+        }
         return origin;
     }
 
@@ -171,10 +187,10 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
         await input.CopyToAsync(file).ConfigureAwait(false);
     }
 
-    private static async Task WaitUntilReadyAsync(Uri origin, Process child, CancellationToken cancellation)
+    private static async Task WaitUntilReadyAsync(Uri origin, Process child, CancellationToken cancellation, bool restoring)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-        deadline.CancelAfter(TimeSpan.FromSeconds(60));
+        deadline.CancelAfter(restoring ? TimeSpan.FromMinutes(30) : TimeSpan.FromSeconds(60));
         using var client = new HttpClient(new SocketsHttpHandler { UseProxy = false, AllowAutoRedirect = false })
         {
             Timeout = TimeSpan.FromSeconds(2)
@@ -208,7 +224,7 @@ internal sealed class BackendHost(string dataDirectory) : IDisposable
         }
         catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
         {
-            throw new TimeoutException("The MeshMonitor backend did not become healthy within 60 seconds.");
+            throw new TimeoutException(restoring ? "The backup restore exceeded 30 minutes." : "The MeshMonitor backend did not become healthy within 60 seconds.");
         }
     }
 

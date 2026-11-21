@@ -10,10 +10,10 @@ public sealed partial class MainWindow
         var g=group("Packet analysis and reports");
         add(g,"Unified packet monitor",c=>UnifiedPackets(c));
         add(g,"Cross-source activity",c=>NetworkReport(c,s,"packets"));
-        add(g,"Mesh issues",async c=>await ShowResult("Mesh issues",Pretty(await c.RequestAsync("api/analysis/mesh-issues?limit=100"))));
-        add(g,"MQTT gateway violations",async c=>await ShowResult("MQTT gateway violations",Pretty(await c.RequestAsync("api/analysis/mqtt-violations/gateways"))));
-        add(g,"Solar monitoring",async c=>await ShowResult("Solar nodes · Last week",Pretty(await c.RequestAsync("api/analysis/solar-nodes?lookback_days=7"))));
-        add(g,"Direct RF contacts",async c=>await ShowResult("Direct RF contacts · "+s.Name,Pretty(await c.RequestAsync(SourceEndpoint(s,"direct-rf-contacts")))),s.Type=="meshtastic_tcp");
+        add(g,"Mesh issues",async c=>await ReportTable(c,"Mesh issues",await c.RequestAsync("api/analysis/mesh-issues?limit=100")));
+        add(g,"MQTT gateway violations",async c=>await ReportTable(c,"MQTT gateway violations",await c.RequestAsync("api/analysis/mqtt-violations/gateways")));
+        add(g,"Solar monitoring",async c=>await ReportTable(c,"Solar nodes · Last week",await c.RequestAsync("api/analysis/solar-nodes?lookback_days=7")));
+        add(g,"Direct RF contacts",async c=>await ReportTable(c,"Direct RF contacts · "+s.Name,await c.RequestAsync(SourceEndpoint(s,"direct-rf-contacts"))),s.Type=="meshtastic_tcp");
         add(g,"Hop counts",c=>NetworkReport(c,s,"hop-counts"));
         add(g,"RF coverage senders",c=>NetworkReport(c,s,"coverage/senders"));
         add(g,"Cross-source receptions",c=>NetworkReport(c,s,"coverage/receptions"));
@@ -51,7 +51,7 @@ public sealed partial class MainWindow
         string path=report=="packets"?"api/unified/packets/distribution?since="+since:
             "api/analysis/"+report+"?since="+since+(s.IsUnified?"":"&sources="+Esc(s.Id))+(report=="coverage/receptions"?"&crossSourceOnly=true":"");
         var result=await c.RequestAsync(path);
-        await ShowResult(report=="packets"?"Packet activity across readable sources":report+" · "+s.Name,Pretty(result));
+        await ReportTable(c, report=="packets"?"Packet activity across readable sources":report+" · "+s.Name, result, path);
     }
     private async Task ExportPackets(MeshApi c,SourceRow s)
     {

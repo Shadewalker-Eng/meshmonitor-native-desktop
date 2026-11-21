@@ -13,6 +13,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Packaging/**/*.cs" />
     <EmbeddedResource Include="AutomationCatalog.json" LogicalName="AutomationCatalog.json" />
     <EmbeddedResource Include="RadioCatalog.json" LogicalName="RadioCatalog.json" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />

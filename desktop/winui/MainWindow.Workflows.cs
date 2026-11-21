@@ -48,12 +48,26 @@ public sealed partial class MainWindow
         Add(n,"Ignored nodes",c => IgnoredNodes(c,s), !s.IsUnified);
         Add(n,"Ignore selected node",c => IgnoreNode(c,s,node!),target);
         Add(n,"Selected position override",c => OverridePosition(c,s,node!),target);
+        if (s.IsMeshCore && node?.MeshCoreKey is string key && (node.SourceId.Length == 0 || node.SourceId == s.Id))
+        {
+            string prefix = SourceEndpoint(s,"meshcore/");
+            Add(n,"Contact position history",async c => await ReportTable(c,node.Name+" · Position history",await c.RequestAsync(prefix+"nodes/"+Esc(key)+"/position-history")));
+            Add(n,"Request contact path discovery",async c =>
+            {
+                if (await Form("Discover path", "Send request", Wrapped("Request a route to "+node.Name+" through "+s.Name+"?")).ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await c.RequestAsync(prefix+"contacts/"+Esc(key)+"/discover-path",new {});
+                    ShowNotice("Path discovery requested.",InfoBarSeverity.Success);
+                }
+            },signedIn);
+        }
         Add(n,"Node enrichment",c => EnrichNodes(c));
         ConfigureMessageTools(Group,Add,s);
         ConfigureAutomationTools(Group,Add,s);
         ConfigureMapTools(Group,Add,s);
         ConfigureAnalysisTools(Group,Add,s);
         ConfigureIntegrationTools(Group,Add,s);
+        if (radioAdmin) ConfigureAccountTools(Group, Add, s);
         menu.ShowAt(WorkflowTools);
     }
 

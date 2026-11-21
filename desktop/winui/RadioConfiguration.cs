@@ -28,7 +28,7 @@ internal sealed record RadioSection(string Key, string Label, int? RequestType, 
                 "statusmessage" => "setStatusMessageConfig", "trafficmanagement" => "setTrafficManagementConfig",
                 "tak" => "setTAKConfig", "meshbeacon" => "setMeshBeaconConfig", _ => section.AdminCommand
             },
-            ViewOnly = section.Key is "power" or "display" || section.Module &&
+            ViewOnly = section.Key is "power" or "display" or "deviceui" || section.Module &&
                 section.Key is not ("mqtt" or "neighborinfo" or "telemetry" or "statusmessage" or "trafficmanagement" or "tak" or "meshbeacon")
         }),
         .. Channels()
@@ -39,7 +39,7 @@ internal sealed record RadioSection(string Key, string Label, int? RequestType, 
     internal int? ChannelIndex { get; init; }
     internal string? MeshCoreReadPath { get; init; }
     internal bool ViewOnly { get; init; }
-    internal bool ReadOnly => ViewOnly || Key == "deviceui";
+    internal bool ReadOnly => ViewOnly;
     internal string SavePath => Module && Key is not ("mqtt" or "neighborinfo") ? $"module/{Key}" : Key;
 
     internal static readonly RadioSection FixedPosition = new("fixed-position", "Fixed position coordinates", null,
@@ -125,6 +125,7 @@ internal sealed record RadioSection(string Key, string Label, int? RequestType, 
         {
             Kind = kind, Options = choices,
             ReadOnly = key is "transparentMode" or "publicKey" ||
+                section == "deviceui" && key is not ("screenBrightness" or "screenTimeout" or "theme" or "alertEnabled" or "bannerEnabled" or "ringToneId" or "language" or "compassMode" or "screenRgbColor" or "isClockfaceAnalog" or "gpsFormat") ||
                 section == "device" && key is "isManaged" or "serialEnabled" ||
                 section == "position" && key is "gpsEnabled" or "gpsAttemptTime",
             Secret = key is "password" or "wifiPsk" or "fixedPin"
@@ -196,7 +197,7 @@ internal sealed record RadioSection(string Key, string Label, int? RequestType, 
                 body.Remove("adminKey");
             }
         }
-        foreach (var field in Fields.Where(field => field.Kind == "enum" && body.ContainsKey(field.Key)))
+        foreach (var field in Fields.Where(field => Key != "deviceui" && field.Kind == "enum" && body.ContainsKey(field.Key)))
         {
             if (changes.ContainsKey(field.Key)) continue;
             if (Read(latest, field) is not int option)

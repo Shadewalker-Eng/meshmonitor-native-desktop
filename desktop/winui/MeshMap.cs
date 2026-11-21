@@ -97,6 +97,17 @@ public sealed partial class MeshMap : Grid
 
     public event Action<NodeRow>? NodeSelected;
     public int PositionedCount => positions.Length;
+    internal MapHome CurrentView => new(centerX, centerY, zoom);
+    internal bool RestoreHome(MapHome? home)
+    {
+        if (offlineTiles != null || home == null || !double.IsFinite(home.X) || home.Y is not (>= 0 and <= 1) || home.Zoom is < 1 or > MaxZoom) return false;
+        centerX = home.X;
+        centerY = home.Y;
+        zoom = home.Zoom;
+        fitPending = false;
+        Render();
+        return true;
+    }
 
     private OfflineTilePackage? offlineTiles;
 

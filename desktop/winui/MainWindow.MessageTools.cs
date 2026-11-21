@@ -45,6 +45,7 @@ public sealed partial class MainWindow
     {
         var g=group("Messages and channels");
         add(g,"Unified channel conversations",c=>UnifiedChannels(c));
+        add(g,"MeshCore channel history and management",c=>MeshCoreChannelHistory(c,s),s.IsMeshCore && signedIn);
         add(g,"Search messages",c=>SearchMessages(c,s));
         add(g,"Insert node mention",async c=>
         {
@@ -157,6 +158,38 @@ public sealed partial class MainWindow
         if(!s.IsUnified)path+="&source="+Esc(s.Id);
         if(keyword.Text.Trim().Length>0)path+="&include="+Esc(keyword.Text.Trim());
         await SaveDownload(c,path,"meshmonitor-messages",".csv");
+    }
+
+    private async Task MeshCoreChannelHistory(MeshApi c, SourceRow source)
+    {
+        var slot = new NumberBox { Header = "Channel slot", Minimum = 0, Maximum = 255, Value = 0, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+        if (await Form("MeshCore channel · " + source.Name, "Open", slot).ShowAsync() != ContentDialogResult.Primary) return;
+        if (!double.IsFinite(slot.Value) || slot.Value != Math.Truncate(slot.Value)) throw new FormatException("Enter an integer channel slot.");
+        string endpoint = SourceEndpoint(source, "meshcore/messages/channel/" + (int)slot.Value);
+        int offset = 0;
+        while (!closed)
+        {
+            var page = await c.RequestAsync(endpoint + "?limit=100&offset=" + offset);
+            var messages = Records(page);
+            var list = new ListView { MaxHeight = 300, ItemsSource = messages.Select(m =>
+                (m.String("senderName") ?? m.String("sender") ?? "") + "  " + (m.String("text") ?? m.String("message") ?? m.ToString())).ToArray() };
+            var clear = new CheckBox { Content = "Clear stored messages from this channel" };
+            var body = new StackPanel { Spacing = 8 };
+            body.Children.Add(list); body.Children.Add(clear);
+            var dlg = DetailDialog("Channel " + (int)slot.Value + " · " + source.Name, body);
+            dlg.PrimaryButtonText = page.Flag("hasMore") == true ? "Older" : "";
+            dlg.SecondaryButtonText = offset > 0 ? "Newer" : "";
+            clear.Click += (_, _) => dlg.PrimaryButtonText = clear.IsChecked == true ? "Review deletion" : page.Flag("hasMore") == true ? "Older" : "";
+            var result = await dlg.ShowAsync();
+            if (result == ContentDialogResult.None) return;
+            if (result == ContentDialogResult.Primary && clear.IsChecked == true)
+            {
+                if (await Form("Clear channel history", "Delete messages", Wrapped($"Delete stored messages in channel {(int)slot.Value} on {source.Name}?")).ShowAsync() == ContentDialogResult.Primary)
+                    await c.RequestAsync(endpoint, new {}, HttpMethod.Delete);
+                offset = 0;
+            }
+            else offset = result == ContentDialogResult.Primary ? offset + 100 : Math.Max(0, offset - 100);
+        }
     }
 
     private async Task VirtualChannelActions(MeshApi c)

@@ -46,6 +46,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button x:Name="SignIn" Content="Sign in" Click="OnSignIn"
                                 Style="{StaticResource AccentButtonStyle}" />
+                        <Button Content="Passkey or single sign-on" Click="OnBrowserSignIn" />
                         <Button Content="Back to dashboard" Click="OnCancelSignIn" />
                     </StackPanel>
                 </StackPanel>

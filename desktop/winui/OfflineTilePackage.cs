@@ -99,7 +99,7 @@ public sealed partial class MainWindow
         {
             OfflineChoice.IsEnabled = importedTiles is not null;
             OfflineCoverage.Text = importedTiles is null ? "Import a ZIP of XYZ raster tiles." : desktop.TileLabel + "\n" + importedTiles.Coverage;
-            BasemapStyle.SelectedIndex = desktop.Offline && importedTiles is not null ? 2 : 0;
+            BasemapStyle.SelectedIndex = desktop.Offline && importedTiles is not null ? 2 : desktop.GrayBasemap ? 1 : 0;
             ApplyBasemap(BasemapStyle.SelectedIndex == 2);
             old?.Dispose();
             restoringTiles = false;

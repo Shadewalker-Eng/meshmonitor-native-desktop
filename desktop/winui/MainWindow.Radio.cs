@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -185,7 +186,7 @@ public sealed partial class MainWindow
             ? client.ReadMeshCoreRadioSection(source, section)
             : client.ReadRadioSection(source, section, radioAdmin);
         bool Editable(RadioSection section) => canWrite && online && !section.ReadOnly &&
-            (section.AdminCommand is null || radioAdmin);
+            (section.AdminCommand is null || radioAdmin) && (section.Key != "deviceui" || radioAdmin);
         bool EditableField(RadioSection section, RadioField field) => Editable(section) && section.CanSave(snapshot) && !field.ReadOnly &&
             (field.Key != "useAead" || snapshot.Property("supportedModules").Flag("aeadChannels") != false);
 
@@ -260,7 +261,7 @@ public sealed partial class MainWindow
             try
             {
                 if (!meshCore) online = (await client.SourceStatus(source)).Flag("connected") == true;
-                if (!remote && !meshCore && request && online && canWrite && Section().RequestType is int configType)
+                if (!remote && !meshCore && request && online && canWrite && Section().Key != "deviceui" && Section().RequestType is int configType)
                 {
                     await client.RequestRadioConfiguration(source, configType, Section().Module);
                     await Task.Delay(1500, lifetime.Token);
@@ -294,7 +295,7 @@ public sealed partial class MainWindow
 
         selector.SelectionChanged += async (_, _) =>
         {
-            if (remote || meshCore || Section().Key is "owner" or "fixed-position" || Section().ChannelIndex is not null ||
+            if (remote || meshCore || Section().Key is "owner" or "fixed-position" or "deviceui" || Section().ChannelIndex is not null ||
                 snapshot.ValueKind != JsonValueKind.Object)
             {
                 snapshot = default;
@@ -391,6 +392,22 @@ public sealed partial class MainWindow
                         snapshot = default;
                         Display();
                     }
+                    return;
+                }
+                if (section.Key == "deviceui")
+                {
+                    var currentUi = section.Settings(current);
+                    var expected = changes.Keys.ToDictionary(key => key, key => currentUi.Property(key));
+                    var reply = await client.RequestAsync("api/config/local-ui", new { sourceId = source.Id, nodeId = RadioSection.NodeId(current), changes, expected }, timeout: TimeSpan.FromSeconds(25));
+                    var received = reply.Property("section");
+                    var mismatches = section.Fields.Where(field => changes.TryGetValue(field.Key, out var value) &&
+                        !Equals(RadioSection.ReadValue(JsonSerializer.SerializeToElement(value), field), RadioSection.Read(received, field))).Select(field => field.Label).ToArray();
+                    if (!showing || closed) return;
+                    var updated = JsonNode.Parse(current.GetRawText())!.AsObject();
+                    updated["deviceConfig"]![section.Field] = JsonNode.Parse(received.GetRawText());
+                    snapshot = JsonSerializer.SerializeToElement(updated);
+                    Display();
+                    status.Text = mismatches.Length == 0 ? "The device confirmed the edited UI preferences." : "Different values returned for " + string.Join(", ", mismatches);
                     return;
                 }
                 await client.SaveRadioConfiguration(source, section, payload);

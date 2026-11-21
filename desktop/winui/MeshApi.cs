@@ -7,12 +7,16 @@ namespace MeshMonitor.Native;
 
 internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellation) : IDisposable
 {
-    private readonly HttpClient client = new(new HttpClientHandler
+    private readonly HttpClientHandler handler = new()
     {
         UseProxy = false,
         AllowAutoRedirect = false,
         CookieContainer = new CookieContainer()
-    }) { BaseAddress = endpoint, Timeout = Timeout.InfiniteTimeSpan };
+    };
+    private HttpClient? sessionClient;
+    private HttpClient client => sessionClient ??= new HttpClient(handler) { BaseAddress = endpoint, Timeout = Timeout.InfiniteTimeSpan };
+    internal Uri LoginOrigin => new UriBuilder(endpoint) { Host = "localhost" }.Uri;
+    internal void ImportDesktopSession(string value) => handler.CookieContainer.Add(endpoint, new Cookie("meshmonitor.winui.sid", value, "/") { HttpOnly = true });
 
     internal Task<JsonElement> AuthStatus() => RequestAsync("api/auth/status");
     internal Task<JsonElement> SignIn(string username, string password) =>
@@ -31,6 +35,14 @@ internal sealed partial class MeshApi(Uri endpoint, CancellationToken cancellati
     internal async Task<JsonElement> ReadRadioSection(SourceRow source, RadioSection section, bool administrator = false)
     {
         var snapshot = await ReadRadioConfiguration(source);
+        if (section.Key == "deviceui" && administrator && RadioSection.NodeId(snapshot) is string localUiId)
+        {
+            var response = await RequestAsync("api/config/local-ui", new { sourceId = source.Id, nodeId = localUiId });
+            var mergedUi = JsonNode.Parse(snapshot.GetRawText())!.AsObject();
+            if (mergedUi["deviceConfig"] is not JsonObject) mergedUi["deviceConfig"] = new JsonObject();
+            mergedUi["deviceConfig"]![section.Field] = JsonNode.Parse(response.Property("section").GetRawText());
+            return JsonSerializer.SerializeToElement(mergedUi);
+        }
         if (section.Key == "owner" && RadioSection.NodeId(snapshot) is { } nodeId)
         {
             JsonElement owner;

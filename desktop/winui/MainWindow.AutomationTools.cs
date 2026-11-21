@@ -65,7 +65,7 @@ public sealed partial class MainWindow
         template.Click+=(_,_)=>Build();
         var error=DialogError();
         var blocks=BlockParameters(rule,error);
-        var dlg=Form(action=="create"?"Create disabled rule":"Edit automation","Save",name,desc,trigger,effect,template,blocks,rule,error);
+        var dlg=Form(action=="create"?"Create disabled rule":"Edit automation","Save",name,desc,trigger,effect,template,RuleBranches(rule,error),blocks,rule,error);
         JsonNode? graph=null;
         dlg.PrimaryButtonClick+=(_,args)=>{
             try{graph=JsonNode.Parse(rule.Text);if(graph is not JsonObject || string.IsNullOrWhiteSpace(name.Text))throw new FormatException("Enter a name and a JSON rule graph.");}
@@ -92,10 +92,22 @@ public sealed partial class MainWindow
                 var box=new CheckBox{Content=key,IsChecked=prop.Value.GetBoolean()};panel.Children.Add(box);
                 edits[key]=()=>JsonValue.Create(box.IsChecked==true);
             }
+            else if (prop.Value.ValueKind == JsonValueKind.String)
+            {
+                var box = new TextBox { Header = key, Text = prop.Value.GetString() ?? "" };
+                panel.Children.Add(box);
+                edits[key] = () => JsonValue.Create(box.Text);
+            }
+            else if (prop.Value.ValueKind == JsonValueKind.Array && prop.Value.EnumerateArray().All(v => v.ValueKind == JsonValueKind.String))
+            {
+                var box = Multiline(key + " (one per line)", string.Join(Environment.NewLine, prop.Value.EnumerateArray().Select(v => v.GetString())));
+                panel.Children.Add(box);
+                edits[key] = () => JsonSerializer.SerializeToNode(box.Text.Split(new[]{'\r','\n'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
             else if(prop.Value.ValueKind is JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Number or JsonValueKind.String or JsonValueKind.Null)
             {
-                var box=Multiline(key,Pretty(prop.Value));panel.Children.Add(box);
-                edits[key]=()=>JsonNode.Parse(box.Text);
+                var field = StructuredField(key, JsonNode.Parse(prop.Value.GetRawText()), "Default", out var readValue);
+                panel.Children.Add(field); edits[key] = readValue;
             }
         }
         var err=DialogError();panel.Children.Add(err);
@@ -104,7 +116,7 @@ public sealed partial class MainWindow
         dlg.PrimaryButtonClick+=(_,a)=>{
             patch.Clear();
             try{foreach(var (key,read) in edits){var updated=read();if(!JsonNode.DeepEquals(updated,JsonNode.Parse(value.Property(key).GetRawText())))patch[key]=updated;}}
-            catch(JsonException ex){a.Cancel=true;err.Text=ex.Message;}
+            catch(Exception ex) when(ex is JsonException or FormatException){a.Cancel=true;err.Text=ex.Message;}
         };
         if(await dlg.ShowAsync()!=ContentDialogResult.Primary || patch.Count==0)return;
         if(!s.IsUnified)patch["sourceId"]=s.Id;

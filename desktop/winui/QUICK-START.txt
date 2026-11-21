@@ -62,3 +62,13 @@ Select a Meshtastic node on the map for Neighbor links, or choose Show on map in
 From Telemetry, pin readings or favorite comparisons and use Dashboard to arrange charts and edit history windows, axis bounds, and comparison sources. Map > Layers remembers visibility. Select a map marker and choose Open node details for its source directory and telemetry history.
 Meshtastic position playback: select a positioned node, enable Layers > Position trails, and choose Show trail. Use Play, the speed selector, the slider, or the previous and next fix buttons. The orange ring marks the recorded position.
 For multi-node playback select a Meshtastic TCP node and choose Replay nodes. Use Map > Layers > Import offline tiles for a ZIP containing XYZ PNG or JPEG tiles at z/x/y. Open Packets on a Meshtastic TCP source to filter or pause the log, inspect a record, or open an activity report and select a count.
+
+Version 28 adds sortable RF reports and sender drill-down, map startup views,
+chart columns and sample inspection. Tools includes account roles, permissions,
+backup and restore, automation branches, and MQTT forwarding forms.
+Use Passkey or single sign-on in the sign-in screen for a configured provider.
+System restore imports a MeshMonitor .tar.gz archive into a separate profile.
+The active profile's data and logs are available from the tray.
+Local Meshtastic administrators can read and save supported Device UI display
+preferences on firmware that answers UI requests. The editor compares the
+changed values with a fresh radio reply.

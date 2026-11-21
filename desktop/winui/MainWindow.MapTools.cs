@@ -8,7 +8,8 @@ using Windows.Foundation;
 
 namespace MeshMonitor.Native;
 
-internal sealed record OverlayPath(string Label,(double X,double Y)[] Points);
+internal sealed record MapHome(double X, double Y, int Zoom);
+internal sealed record OverlayPath(string Label,(double X,double Y)[] Points, string? Stroke = null, double Weight = 2);
 public sealed partial class MeshMap
 {
     private readonly Canvas annotations=new(){IsHitTestVisible=false};
@@ -18,10 +19,15 @@ public sealed partial class MeshMap
     private void DrawOverlays(double left,double top,double world)
     {
         annotations.Children.Clear();
-        var brush=new SolidColorBrush(Colors.DarkSlateBlue);
+        
         foreach(var path in overlays.Values.SelectMany(rows=>rows))
         {
             if(path.Points.Length==0)continue;
+            var color = Colors.DarkSlateBlue;
+            if (path.Stroke is { Length: 7 } hex && hex[0] == '#' &&
+                int.TryParse(hex[1..], System.Globalization.NumberStyles.HexNumber, null, out int rgb))
+                color = Windows.UI.Color.FromArgb(255,(byte)(rgb >> 16),(byte)(rgb >> 8),(byte)rgb);
+            var brush = new SolidColorBrush(color);
             var points=new PointCollection();
             double anchor=centerX;
             foreach(var pt in path.Points)
@@ -29,7 +35,7 @@ public sealed partial class MeshMap
                 anchor=MapProjection.NearestWorld(pt.X,anchor);
                 points.Add(new Point(anchor*world-left,pt.Y*world-top));
             }
-            if(points.Count>1)annotations.Children.Add(new Polyline{Points=points,Stroke=brush,StrokeThickness=2});
+            if(points.Count>1)annotations.Children.Add(new Polyline{Points=points,Stroke=brush,StrokeThickness=path.Weight});
             else
             {
                 var p=points[0];
@@ -52,6 +58,8 @@ public sealed partial class MainWindow
         add(map,"Manage local marker",c=>EditAnnotation(c,s,false),!s.IsUnified);
         add(map,"Import GeoJSON or KML",c=>ImportGeoLayer(c),signedIn);
         add(map,"Map and layout preferences",c=>LayoutSettings());
+        add(map,"Use current map view at startup",_=>{SaveDesktop(desktop with {Home=NodeMap.CurrentView});return Task.CompletedTask;});
+        add(map,"Fit nodes at startup",_=>{SaveDesktop(desktop with {Home=null});return Task.CompletedTask;});
         add(map,"Show GeoJSON layer",c=>GeoLayer(c));
         add(map,"Clear additional layers",_=>{NodeMap.ClearOverlays();return Task.CompletedTask;});
         add(map,"Review telemetry outliers",c=>Outliers(c,s),radioAdmin&&!s.IsUnified);
@@ -141,10 +149,13 @@ public sealed partial class MainWindow
         var width=new NumberBox{Header="Sources sidebar width",Minimum=180,Maximum=420,Value=desktop.SidebarWidth};
         var startup=new ComboBox{Header="Opening tab",ItemsSource=Activity.Items.OfType<PivotItem>().Select(item=>item.Header?.ToString()??"Map").ToArray(),
             SelectedIndex=Math.Clamp(desktop.OpeningTab,0,Activity.Items.Count-1)};
-        if(await Form("Workspace layout","Save",width,startup).ShowAsync()!=ContentDialogResult.Primary)return;
+        var columns = new ComboBox { Header="Telemetry chart columns", ItemsSource=new[]{1,2,3}, SelectedIndex=Math.Clamp(desktop.ChartColumns,1,3)-1 };
+        if(await Form("Workspace layout","Save",width,startup,columns).ShowAsync()!=ContentDialogResult.Primary)return;
         if(!double.IsFinite(width.Value))return;
-        SaveDesktop(desktop with { SidebarWidth=width.Value, OpeningTab=startup.SelectedIndex });
+        SaveDesktop(desktop with { SidebarWidth=width.Value, OpeningTab=startup.SelectedIndex, ChartColumns=columns.SelectedIndex+1 });
         Workspace.ColumnDefinitions[0].Width=new GridLength(width.Value);
+        if (ReferenceEquals(Activity.SelectedItem, DashboardTab) && api != null && SourcesList.SelectedItem is SourceRow source)
+            await LoadDashboardAsync(api, source);
     }
     private async Task GeoLayer(MeshApi c)
     {
@@ -152,18 +163,18 @@ public sealed partial class MainWindow
         if(choice is not {} layer)return;
         var data=await c.RequestAsync($"api/geojson/layers/{Esc(layer.Property("id").ToString())}/data");
         var paths=new List<OverlayPath>();
-        void Read(JsonElement g,string name)
+        void Read(JsonElement g,string name, string? stroke=null, double weight=2)
         {
             var coords=g.Property("coordinates");
             (double,double) Point(JsonElement p)=>MapProjection.Project(p[1].GetDouble(),p[0].GetDouble());
-            void Line(JsonElement line)=>paths.Add(new(name,line.EnumerateArray().Select(Point).ToArray()));
+            void Line(JsonElement line)=>paths.Add(new(name,line.EnumerateArray().Select(Point).ToArray(),stroke,weight));
             switch(g.String("type"))
             {
                 case "FeatureCollection": foreach(var feature in Records(g.Property("features")))Read(feature,name);break;
-                case "Feature": Read(g.Property("geometry"),g.Property("properties").String("name")??name);break;
-                case "GeometryCollection":foreach(var child in Records(g.Property("geometries")))Read(child,name);break;
-                case "Point":paths.Add(new(name,[Point(coords)]));break;
-                case "MultiPoint":foreach(var pt in coords.EnumerateArray())paths.Add(new(name,[Point(pt)]));break;
+                case "Feature": var style=g.Property("properties"); Read(g.Property("geometry"),style.String("name")??name, style.String("stroke")??style.String("marker-color"), Math.Clamp(style.Number("stroke-width")??2,1,10));break;
+                case "GeometryCollection":foreach(var child in Records(g.Property("geometries")))Read(child,name,stroke,weight);break;
+                case "Point":paths.Add(new(name,[Point(coords)],stroke,weight));break;
+                case "MultiPoint":foreach(var pt in coords.EnumerateArray())paths.Add(new(name,[Point(pt)],stroke,weight));break;
                 case "LineString": Line(coords);break;
                 case "Polygon":case "MultiLineString":foreach(var line in coords.EnumerateArray())Line(line);break;
                 case "MultiPolygon":foreach(var poly in coords.EnumerateArray())foreach(var ring in poly.EnumerateArray())Line(ring);break;

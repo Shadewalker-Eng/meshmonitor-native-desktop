@@ -77,7 +77,7 @@ public sealed partial class MainWindow
         bool broker=s.Type=="meshcore_mqtt_broker";
         var keys=broker?new[]{"allowedObservers","forwarding"}:
             new[]{"downlinkFilters","uplinkFilters","downlinkTopicRewrite","uplinkTopicRewrite"};
-        var fields=new List<FrameworkElement>();var inputs=new Dictionary<string,TextBox>();
+        var fields=new List<FrameworkElement>();var inputs=new Dictionary<string,Func<JsonNode?>>();
         foreach(string key in keys)
         {
             var value=key=="allowedObservers"?original["auth"]?[key]:original[key];
@@ -87,17 +87,32 @@ public sealed partial class MainWindow
                 if (value["targets"] is JsonArray targets)
                     foreach (var entry in targets.OfType<JsonObject>()) entry.Remove("password");
             }
-            var field=Multiline(key,value?.ToJsonString(new JsonSerializerOptions{WriteIndented=true})??"null");
-            inputs[key]=field;fields.Add(field);
+            if (!broker)
+            {
+                var editor = BridgeRuleFields(key, value, out var read);
+                fields.Add(editor);
+                inputs[key] = read;
+                continue;
+            }
+            if (key == "allowedObservers")
+            {
+                var keysBox = Multiline("Observer public keys (one per line)", string.Join(Environment.NewLine, (value as JsonArray ?? []).Select(v => v?.ToString())));
+                fields.Add(keysBox);
+                inputs[key] = () => JsonSerializer.SerializeToNode(keysBox.Text.Split(new[]{'\r','\n'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                continue;
+            }
+            var targetsPanel = BrokerTargets(value, out var readTargets);
+            inputs[key] = readTargets;
+            fields.Add(targetsPanel);
         }
-        fields.Insert(0,Wrapped(broker?"Observer keys are a JSON array. Forwarding settings contain the target list.":
-            "Filters use the bridge filter schema. A rewrite uses from and to topic prefixes and requires a linked broker. Use null to clear a setting."));
+        fields.Insert(0,Wrapped(broker?"Enter observer public keys and configure forwarding targets.":
+            "Topic rewrites apply to a linked broker. Enter one filter value per line."));
         var error=DialogError();fields.Add(error);
         var dlg=Form(s.Name,"Save settings",fields.ToArray());
         var config=original.DeepClone().AsObject();
         dlg.PrimaryButtonClick+=(_,a)=>{
             try{
-                foreach(var key in keys){var value=JsonNode.Parse(inputs[key].Text);
+                foreach(var key in keys){var value=inputs[key]();
                     if(key=="allowedObservers" && config["auth"] is not JsonObject)config["auth"]=new JsonObject();
                     var target=key=="allowedObservers"?config["auth"]!.AsObject():config;
                     if(value==null)target.Remove(key);else target[key]=value;}

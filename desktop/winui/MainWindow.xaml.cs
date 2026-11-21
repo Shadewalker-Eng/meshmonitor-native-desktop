@@ -112,8 +112,7 @@ public sealed partial class MainWindow : Window
         Notice.IsOpen = false;
         try
         {
-            var folder = Environment.GetEnvironmentVariable("MESHMONITOR_WINUI_DATA")
-                ?? BackendHost.DefaultDataDirectory;
+            var folder = ActiveProfile();
             var host = new BackendHost(Path.GetFullPath(folder));
             backend = host;
             var endpoint = await host.StartAsync(lifetime.Token);
@@ -209,7 +208,7 @@ public sealed partial class MainWindow : Window
         Access.Visibility = Visibility.Collapsed;
         Credentials.Visibility = Visibility.Collapsed;
         AccountTools.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
-        SignInView.Visibility = signedIn || status.Flag("localAuthDisabled") == true
+        SignInView.Visibility = signedIn
             ? Visibility.Collapsed : Visibility.Visible;
         Workspace.Visibility = Visibility.Visible;
         if (!signedIn && (Activity.SelectedItem as PivotItem) != MapTab) Activity.SelectedItem = MapTab;
@@ -418,6 +417,7 @@ public sealed partial class MainWindow : Window
                     }
                 }
             }
+            if (fitMap && NodeMap.RestoreHome(desktop.Home)) fitMap = false;
             bool autoFit = fitMap && positioned.Length > 0;
             NodeMap.SetNodes(positioned, autoFit, selectedMapNode);
             if (autoFit) fitMap = false;
@@ -446,9 +446,10 @@ public sealed partial class MainWindow : Window
         if (MapAttribution is null) return;
         if (restoringTiles) return;
         bool offline = BasemapStyle.SelectedIndex == 2 && importedTiles is not null;
-        if (preferenceFile.Length > 0 && desktop.Offline != offline)
+        bool gray = offline ? desktop.GrayBasemap : BasemapStyle.SelectedIndex == 1;
+        if (preferenceFile.Length > 0 && (desktop.Offline != offline || desktop.GrayBasemap != gray))
         {
-            try { SaveDesktop(desktop with { Offline = offline }); }
+            try { SaveDesktop(desktop with { Offline = offline, GrayBasemap = gray }); }
             catch (IOException ex) { ShowNotice(ex.Message, InfoBarSeverity.Warning); }
         }
         ApplyBasemap(offline);

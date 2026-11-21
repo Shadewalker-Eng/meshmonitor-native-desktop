@@ -14,11 +14,14 @@ internal sealed record PinnedChart(string Source, string Node, string Name, stri
 
 internal sealed record DesktopPreferences
 {
+    public MapHome? Home { get; init; }
+    public int ChartColumns { get; init; } = 1;
     public int OpeningTab { get; init; }
     public double SidebarWidth { get; init; } = 265;
     public PinnedChart[] Charts { get; init; } = [];
     public string? TilePackage { get; init; }
     public string? TileLabel { get; init; }
+    public bool GrayBasemap { get; init; }
     public bool Offline { get; init; }
     public bool Markers { get; init; } = true;
     public bool Trails { get; init; } = true;
@@ -109,6 +112,19 @@ public sealed partial class MainWindow
                     AutomationProperties.SetName(plot, $"{chart.Name} {chart.Metric}");
                     plot.SizeChanged += (_, _) => DrawTelemetryLines(plot, lines, chart.Minimum, chart.Maximum, chart.Scatter);
                     card.Children.Add(plot);
+                    var sample = Wrapped("");
+                    var timeOrder = lines.SelectMany(line => line.Points.Select(p => (line.SourceName, Point: p))).OrderBy(p => p.Point.Time).ToArray();
+                    plot.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                    void Inspect(double x)
+                    {
+                        double fraction = Math.Clamp((x - 8) / Math.Max(1, plot.ActualWidth - 16), 0, 1);
+                        var time = timeOrder[0].Point.Time + (timeOrder[^1].Point.Time - timeOrder[0].Point.Time) * fraction;
+                        var nearest = timeOrder.MinBy(entry => Math.Abs((entry.Point.Time - time).TotalSeconds));
+                        sample.Text = $"{nearest.SourceName} · {nearest.Point.Time.ToLocalTime():g} · {nearest.Point.Value:G6} {chart.Unit}";
+                    }
+                    plot.PointerPressed += (_, e) => Inspect(e.GetCurrentPoint(plot).Position.X);
+                    plot.PointerMoved += (_, e) => Inspect(e.GetCurrentPoint(plot).Position.X);
+                    card.Children.Add(sample);
                     card.Children.Add(Wrapped($"Last {chart.Hours} h · Y axis {chart.Minimum ?? points.Min(p => p.Value):G6} to {chart.Maximum ?? points.Max(p => p.Value):G6} {chart.Unit} · {points.Length} samples"));
                     if (lines.Length > 1)
                     {
@@ -126,7 +142,7 @@ public sealed partial class MainWindow
             }
             catch (HttpRequestException error) { card.Children.Add(Wrapped(error.Message)); }
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            card.Children.Add(actions);
+            card.Children.Add(new ScrollViewer { Content = actions, HorizontalScrollMode = ScrollMode.Enabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollMode = ScrollMode.Disabled });
             void Action(string title, bool enabled, Func<Task> change)
             {
                 var button = new Button { Content = title, IsEnabled = enabled };
@@ -158,7 +174,20 @@ public sealed partial class MainWindow
         if (closed) return;
         DashboardCards.Children.Clear();
         if (cards.Count == 0) DashboardCards.Children.Add(Wrapped("Select a reading in Telemetry and choose Pin chart."));
-        foreach (var card in cards) DashboardCards.Children.Add(card);
+        int columns = Math.Clamp(desktop.ChartColumns, 1, 3);
+        for (int start = 0; start < cards.Count; start += columns)
+        {
+            var row = new Grid { ColumnSpacing = 12 };
+            for (int index = 0; index < columns; index++)
+            {
+                row.ColumnDefinitions.Add(new ColumnDefinition());
+                if (start + index >= cards.Count) continue;
+                var card = cards[start + index];
+                Grid.SetColumn(card, index);
+                row.Children.Add(card);
+            }
+            DashboardCards.Children.Add(row);
+        }
     }
 
     private async Task EditChart(MeshApi client, PinnedChart chart)
